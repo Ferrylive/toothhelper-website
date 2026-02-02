@@ -1,0 +1,2656 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ToothHelper | 数字口腔医疗影像系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        /* ==========================================
+           Tailwind CSS 配置
+           ========================================== */
+        
+        tailwind.config = {
+            darkMode: 'media', // 使用系统偏好设置自动切换
+            theme: {
+                extend: {
+                    // 字体配置
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],        // 正文字体
+                        heading: ['Outfit', 'sans-serif'],    // 标题字体
+                    },
+                    // 自定义颜色
+                    colors: {
+                        'med-base': 'rgb(229, 244, 235)', // 浅薄荷基底
+                        'tech-cyan': '#7FECD8',           // 科技青
+                        'tech-cyan-dark': '#5EcCb8',      // 深青 hover
+                        'deep-teal': '#0f3e3e',           // 深色文字
+                        'surface-white': 'rgba(255, 255, 255, 0.85)',
+                        // 黑暗模式颜色
+                        'dark-bg': '#0a1f1f',             // 深色背景
+                        'dark-surface': '#1a3333',        // 深色表面
+                        'dark-text': '#e0f2f1',           // 浅色文字
+                    },
+                    // 渐变背景
+                    backgroundImage: {
+                        'tech-gradient': 'linear-gradient(135deg, #7FECD8 0%, #2dd4bf 100%)',
+                        'card-gradient': 'linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.4) 100%)',
+                    },
+                    // 阴影效果
+                    boxShadow: {
+                        'glow': '0 0 25px -5px rgba(127, 236, 216, 0.6)',
+                        'card': '0 10px 30px -10px rgba(15, 62, 62, 0.1)',
+                        'card-hover': '0 20px 40px -10px rgba(127, 236, 216, 0.4)',
+                    },
+                    // 动画定义
+                    animation: {
+                        'scan-sweep': 'scanSweep 3s ease-in-out infinite',
+                        'float-slow': 'float 8s ease-in-out infinite alternate',
+                        'pulse-glow': 'pulseGlow 4s ease-in-out infinite',
+                        'spin-slow': 'spin 15s linear infinite',
+                    },
+                    // 关键帧动画
+                    keyframes: {
+                        scanSweep: {
+                            '0%': { backgroundPosition: '0% 0%' },
+                            '100%': { backgroundPosition: '0% 200%' },
+                        },
+                        float: {
+                            '0%': { transform: 'translateY(0px)' },
+                            '100%': { transform: 'translateY(-20px)' },
+                        },
+                        pulseGlow: {
+                            '0%, 100%': { opacity: 0.5, transform: 'scale(1)' },
+                            '50%': { opacity: 1, transform: 'scale(1.05)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* ==========================================
+           全局样式
+           ========================================== */
+        
+        body {
+            background-color: rgb(229, 244, 235);
+            background-image: radial-gradient(at 0% 0%, rgba(127, 236, 216, 0.15) 0px, transparent 50%),
+                              radial-gradient(at 100% 100%, rgba(127, 236, 216, 0.15) 0px, transparent 50%);
+            color: #0f3e3e;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* ==========================================
+           组件样式 - 磨砂玻璃效果
+           ========================================== */
+        
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            border-top: 1px solid rgba(255, 255, 255, 0.9);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+        }
+
+        /* ==========================================
+           组件样式 - 上传卡片
+           ========================================== */
+        
+        .upload-card {
+            background: linear-gradient(145deg, rgba(255,255,255,0.9), rgba(255,255,255,0.6));
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            border-radius: 2rem;
+            overflow: hidden;
+        }
+        /* 当有背景图片时，覆盖默认背景 */
+        .upload-card[style*="background-image"] {
+            background-color: rgba(255, 255, 255, 0.95);
+        }
+        .upload-card:hover {
+            border-color: #7FECD8;
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px -10px rgba(127, 236, 216, 0.3);
+        }
+
+        /* ==========================================
+           滚动条样式
+           ========================================== */
+        
+        /* 主滚动条 */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #bfece6; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #7FECD8; }
+
+        /* ==========================================
+           动画效果
+           ========================================== */
+        
+        /* 扫描动画 - 上传卡片悬停效果 */
+        .scan-line {
+            background: linear-gradient(to bottom, transparent, #7FECD8 50%, transparent);
+            height: 100%;
+            width: 100%;
+            position: absolute;
+            top: -100%;
+            left: 0;
+            opacity: 0.2;
+        }
+        .upload-card:hover .scan-line {
+            animation: dropScan 2s linear infinite;
+        }
+        @keyframes dropScan {
+            0% { top: -100%; }
+            100% { top: 100%; }
+        }
+        
+        /* 慢速脉冲动画 */
+        @keyframes pulse-slow {
+            0%, 100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.8;
+                transform: scale(1.05);
+            }
+        }
+        
+        .animate-pulse-slow {
+            animation: pulse-slow 3s ease-in-out infinite;
+        }
+
+        /* ==========================================
+           装饰性元素
+           ========================================== */
+        
+        /* 背景图案 */
+        .bg-pattern {
+            position: absolute;
+            opacity: 0.15;
+            pointer-events: none;
+            fill: #7FECD8;
+            z-index: 0;
+        }
+        
+        /* 对话气泡 */
+        .speech-bubble {
+            width: 200px;
+            animation: gentleBubbleFloat 4s ease-in-out infinite;
+        }
+        .speech-bubble p {
+            line-height: 1.5;
+        }
+        @keyframes gentleBubbleFloat {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-5px); }
+        }
+        
+        /* 淡入动画 */
+        @keyframes fadeIn {
+            0% { opacity: 0; transform: translateY(-10px); }
+            100% { opacity: 1; transform: translateY(0px); }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        /* ==========================================
+           工具类
+           ========================================== */
+        
+        /* 隐藏滚动条 */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        
+        /* 模态框自定义滚动条 */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #7FECD8;
+            border-radius: 10px;
+            border: 2px solid white;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #5AD4BE;
+        }
+        
+        /* ==========================================
+           表单元素样式
+           ========================================== */
+        
+        /* Select下拉框选项美化 */
+        select option {
+            background-color: #FFFFFF !important;
+            color: #1B4D5C !important;
+            padding: 10px;
+        }
+        select option:hover {
+            background-color: #F0FDFB !important;
+        }
+        select option:checked {
+            background-color: #E0F9F5 !important;
+            color: #0D9488 !important;
+            font-weight: 600;
+        }
+        select option[value=""] {
+            color: #94A3B8 !important;
+        }
+
+        /* ==========================================
+           黑暗模式适配
+           基于系统偏好自动切换
+           ========================================== */
+        
+        @media (prefers-color-scheme: dark) {
+            /* 全局背景和文字 */
+            body {
+                background-color: #0a1f1f;
+                background-image: radial-gradient(at 0% 0%, rgba(127, 236, 216, 0.08) 0px, transparent 50%),
+                                  radial-gradient(at 100% 100%, rgba(127, 236, 216, 0.08) 0px, transparent 50%);
+                color: #e0f2f1;
+            }
+
+            /* 玻璃面板 */
+            .glass-panel {
+                background: rgba(26, 51, 51, 0.85);
+                border-color: rgba(127, 236, 216, 0.2);
+            }
+
+            /* 上传卡片 */
+            .upload-card {
+                background: linear-gradient(145deg, rgba(26, 51, 51, 0.6), rgba(26, 51, 51, 0.4));
+                border-color: rgba(127, 236, 216, 0.3);
+            }
+
+            /* 文字颜色 */
+            .text-deep-teal {
+                color: #e0f2f1 !important;
+            }
+            
+            .text-deep-teal\/60,
+            .text-deep-teal\/70 {
+                color: rgba(224, 242, 241, 0.7) !important;
+            }
+
+            /* 背景色 */
+            .bg-white {
+                background-color: #1a3333 !important;
+            }
+
+            .bg-white\/70,
+            .bg-white\/60 {
+                background-color: rgba(26, 51, 51, 0.7) !important;
+            }
+
+            .bg-gray-50 {
+                background-color: #0f2626 !important;
+            }
+
+            .bg-med-base\/30 {
+                background-color: rgba(26, 51, 51, 0.3) !important;
+            }
+
+            /* 边框颜色 */
+            .border-gray-200,
+            .border-gray-100 {
+                border-color: rgba(127, 236, 216, 0.2) !important;
+            }
+
+            .border-tech-cyan\/10,
+            .border-tech-cyan\/20 {
+                border-color: rgba(127, 236, 216, 0.25) !important;
+            }
+
+            /* 输入框 */
+            input, textarea, select {
+                background-color: #1a3333 !important;
+                color: #e0f2f1 !important;
+                border-color: rgba(127, 236, 216, 0.3) !important;
+            }
+
+            input::placeholder,
+            textarea::placeholder {
+                color: rgba(224, 242, 241, 0.5) !important;
+            }
+
+            /* 模态框背景 */
+            .bg-deep-teal\/30 {
+                background-color: rgba(10, 31, 31, 0.8) !important;
+            }
+
+            /* 阴影调整 */
+            .shadow-sm,
+            .shadow-md,
+            .shadow-lg {
+                box-shadow: 0 4px 20px rgba(127, 236, 216, 0.1) !important;
+            }
+
+            /* SVG图标 */
+            .bg-pattern path {
+                fill: rgba(127, 236, 216, 0.1);
+            }
+
+            /* 按钮 */
+            button {
+                color: #e0f2f1;
+            }
+
+            /* 选择框选项 */
+            select option {
+                background-color: #1a3333 !important;
+                color: #e0f2f1 !important;
+            }
+
+            select option:hover {
+                background-color: #0f2626 !important;
+            }
+        }
+   
+
+    </style>
+</head>
+<body class="selection:bg-tech-cyan/30 h-screen overflow-hidden bg-med-base dark:bg-dark-bg transition-colors duration-300">
+
+    <div class="fixed inset-0 pointer-events-none z-0">
+        <svg class="bg-pattern -top-20 -left-20 w-[600px] h-[600px] animate-float-slow" viewBox="0 0 512 512"><path d="M416 160c0-35.3-28.7-64-64-64-35.3 0-64 28.7-64 64 0 23.7 12.8 44.4 32 55.4v65c0 56.3-24.7 83.7-52.5 98.2-15.2 8-31.7 12.3-47.5 12.3-15.8 0-32.3-4.3-47.5-12.3C144.7 364.2 120 336.8 120 280.4v-65c19.2-11 32-31.7 32-55.4 0-35.3-28.7-64-64-64S24 124.7 24 160c0 23.7 12.8 44.4 32 55.4v65c0 25.8 5.3 50 15.2 72.3 15.2 34.2 41.2 63.2 76.8 81.8 26.8 14 56.7 21.4 88 21.4s61.2-7.4 88-21.4c35.6-18.7 61.6-47.6 76.8-81.8 9.9-22.3 15.2-46.5 15.2-72.3v-65c19.2-11 32-31.7 32-55.4z"/></svg>
+        <div class="absolute bottom-0 right-0 w-[500px] h-[500px] bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDQwIDQwIiBvcGFjaXR5PSIwLjEiPjxwYXRoIGQ9Ik0yMCAyMGgyMHYyMEgyMFYyMHpNTAgMGgyMHYyMEgwVjB6IiBmaWxsPSIjN0ZFQ0Q4IiBmaWxsLW9wYWNpdHk9IjAuNCIvPjwvc3ZnPg==')] opacity-40 mask-image-gradient"></div>
+    </div>
+
+    <div class="relative z-10 h-screen overflow-y-auto">
+    
+    <main class="px-4 pb-8 pt-6">
+        <div class="max-w-6xl mx-auto">
+            
+            <div class="glass-panel rounded-[2.5rem] p-6 md:p-8 lg:p-12 shadow-card border-white/80 relative overflow-hidden">
+                
+                <div class="absolute -top-24 -right-24 w-64 h-64 bg-tech-cyan/20 rounded-full blur-[80px]"></div>
+
+                <div class="flex flex-col md:flex-row justify-between items-center mb-2 md:mb-16 relative z-10">
+                    <div class="max-w-2xl lg:max-w-4xl text-center md:text-left w-full md:w-auto">
+                        <div class="hidden md:inline-flex items-center gap-2 px-3 md:px-4 py-1.5 md:py-2 rounded-full bg-white/80 border border-tech-cyan/30 text-deep-teal/80 text-xs md:text-sm font-bold mb-3 md:mb-2 shadow-sm">
+                            <i class="fa-solid fa-shield-halved text-tech-cyan-dark text-sm md:text-base"></i> 
+                            <span data-i18n="noThirdParty">系统不会将您的数据发送给任何第三方</span>
+                        </div>
+                        <h2 class="font-heading text-3xl md:text-4xl lg:text-5xl font-bold text-deep-teal mb-4 md:mb-6">
+                            <div>ToothHelper</div>
+                            <div class="mt-2 md:mt-4">
+                                <span class="text-transparent bg-clip-text bg-gradient-to-r from-tech-cyan-dark to-teal-600" data-i18n="smartOralSystem">智能口腔健康系统</span>
+                            </div>
+                        </h2>
+                        
+                        <!-- 移动端按钮 -->
+                        <div class="md:hidden flex items-center justify-center gap-3 mb-4 flex-wrap">
+                            <button onclick="toggleModal('api-modal')" class="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/80 hover:bg-white text-xs font-medium text-deep-teal border border-tech-cyan/20 transition-all shadow-sm">
+                                <i class="fa-solid fa-code text-tech-cyan-dark"></i>
+                                <span data-i18n="apiCall" class="whitespace-nowrap">API调用</span>
+                            </button>
+                            <button onclick="toggleModal('about-modal')" class="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/80 hover:bg-white text-xs font-medium text-deep-teal border border-tech-cyan/20 transition-all shadow-sm">
+                                <i class="fa-solid fa-user-circle text-tech-cyan-dark"></i>
+                                <span data-i18n="aboutUs" class="whitespace-nowrap">关于我们</span>
+                            </button>
+                            <div class="flex items-center gap-1 rounded-lg bg-white/80 border border-tech-cyan/20 shadow-sm px-1 py-1.5">
+                                <button type="button" class="lang-zh-btn px-2.5 py-1 rounded text-xs font-bold text-deep-teal transition-colors" onclick="setLang('zh')" aria-label="中文">中</button>
+                                <span class="text-deep-teal/40 text-xs">/</span>
+                                <button type="button" class="lang-en-btn px-2.5 py-1 rounded text-xs font-bold text-deep-teal/60 hover:text-deep-teal transition-colors" onclick="setLang('en')" aria-label="English">EN</button>
+                            </div>
+                        </div>
+                        <p class="hidden lg:block text-deep-teal/70 text-lg leading-relaxed mb-8" data-i18n="heroDesc">
+                            基于深度学习的计算机视觉技术（DuYa Model），1分钟内快速完成全口健康状况分析。请按照标准上传3张牙齿照片以启动分析。
+                        </p>
+                        
+                        <!-- 移动端小人区域 -->
+                        <div class="md:hidden relative mb-4 px-2">
+                            <div class="flex items-start gap-3">
+                                <!-- 左侧：小人 -->
+                                <div class="flex-shrink-0 -ml-2">
+                                    <img src="assets/doctor-logo.png" alt="智能口腔终端" class="w-32 h-32 object-contain cursor-pointer hover:scale-105 transition-transform duration-300" onclick="updateBubbleText()" title="点击切换提示" />
+                                </div>
+                                
+                                <!-- 右侧：气泡和统计 -->
+                                <div class="flex-1 flex flex-col gap-3 pt-2">
+                                    <!-- 对话气泡 - 右上方 -->
+                                    <div class="animate-fade-in">
+                                        <div class="bg-white rounded-2xl px-3 py-2.5 border border-tech-cyan/30 relative shadow-sm w-fit max-w-[180px] min-h-[65px] flex items-center">
+                                            <p id="bubble-text-mobile" class="text-xs font-medium text-deep-teal transition-opacity duration-700 ease-in-out leading-relaxed" data-i18n="helloAssistant" data-i18n-html="1">
+                                                您好！我是您的<br/>智能口腔助手
+                                            </p>
+                                            <!-- 气泡小尾巴 - 指向左边 -->
+                                            <div class="absolute left-0 top-4 -translate-x-1/2 rotate-45 w-3 h-3 bg-white dark:bg-dark-surface border-l border-b border-tech-cyan/30"></div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- 统计数据 - 右下方 -->
+                                    <div class="bg-white/70 rounded-xl px-3 py-2 border border-tech-cyan/10 shadow-sm w-full -mr-3">
+                                        <p class="text-xs text-deep-teal/70 font-medium leading-tight">
+                                            <span data-i18n="userCountPrefix">ToothHelper已为 </span><span id="user-count-mobile" class="font-bold text-tech-cyan-dark text-base">99,888</span><span data-i18n="userCountSuffix"> 名用户提供口腔健康指导</span>
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>  
+                        </div>
+                        
+                        <!-- 移动端功能参数 -->
+                        <div class="md:hidden grid grid-cols-3 gap-x-3 gap-y-4 px-2 pb-4 mb-2 border-b border-deep-teal/5">
+                            <div class="relative text-center">
+                                <div class="text-xl font-bold text-deep-teal relative inline-block">
+                                    <span data-i18n="stat10Value">10种</span>
+                                    <button onclick="toggleModal('disease-modal')" class="absolute -top-1 -right-3 inline-flex items-center justify-center w-3 h-3 rounded-full bg-tech-cyan-dark text-white text-[8px] hover:bg-tech-cyan transition-colors">
+                                        <i class="fa-solid fa-exclamation"></i>
+                                    </button> 
+                                </div>
+                                <div class="text-[10px] text-deep-teal/50 font-bold uppercase leading-tight" data-i18n="kinds">可识别问题种类</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-xl font-bold text-deep-teal">88.5%</div>
+                                <div class="text-[10px] text-deep-teal/50 font-bold uppercase leading-tight" data-i18n="accuracy">综合识别准确率</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-xl font-bold text-deep-teal">< 1min</div>
+                                <div class="text-[10px] text-deep-teal/50 font-bold uppercase leading-tight" data-i18n="timeCost">分析耗时</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-xl font-bold text-deep-teal">10B+</div>
+                                <div class="text-[10px] text-deep-teal/50 font-bold uppercase leading-tight" data-i18n="params">模型参数量</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-xl font-bold text-deep-teal">AES256</div>
+                                <div class="text-[10px] text-deep-teal/50 font-bold uppercase leading-tight md:whitespace-nowrap md:leading-tight min-h-[2.2em] flex items-center justify-center leading-snug" data-i18n="encryption" data-i18n-html="1">数据对称加密存储</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-xl font-bold text-deep-teal">80%</div>
+                                <div class="text-[10px] text-deep-teal/50 font-bold uppercase leading-tight min-h-[2.2em] flex items-center justify-center leading-snug" data-i18n="efficiency" data-i18n-html="1">就诊效率提升</div>
+                            </div>
+                        </div>
+                        
+                        <!-- 桌面端功能参数 -->
+                        <div class="hidden md:grid md:grid-cols-3 lg:flex lg:flex-nowrap justify-start gap-6 border-t border-deep-teal/5 pt-6">
+                            <div class="relative text-left">
+                                <div class="text-2xl font-bold text-deep-teal relative inline-block">
+                                    <span data-i18n="stat10Value">10种</span>
+                                    <button onclick="toggleModal('disease-modal')" class="absolute -top-1 -right-3 inline-flex items-center justify-center w-3 h-3 rounded-full bg-tech-cyan-dark text-white text-[8px] hover:bg-tech-cyan transition-colors">
+                                        <i class="fa-solid fa-exclamation"></i>
+                                    </button>
+                                </div>
+                                <div class="text-xs text-deep-teal/50 font-bold uppercase" data-i18n="kindsDesktop" data-i18n-html="1">可识别疾病种类</div>
+                            </div>
+                            <div class="text-left">
+                                <div class="text-2xl font-bold text-deep-teal">88.5%</div>
+                                <div class="text-xs text-deep-teal/50 font-bold uppercase" data-i18n="accuracy">综合识别准确率</div>
+                            </div>
+                            <div class="text-left">
+                                <div class="text-2xl font-bold text-deep-teal">< 1min</div>
+                                <div class="text-xs text-deep-teal/50 font-bold uppercase" data-i18n="timeCost">分析耗时</div>
+                            </div>
+                            <div class="text-left">
+                                <div class="text-2xl font-bold text-deep-teal">10B+</div>
+                                <div class="text-xs text-deep-teal/50 font-bold uppercase" data-i18n="params">模型参数量</div>
+                            </div>
+                            <div class="text-left">
+                                <div class="text-2xl font-bold text-deep-teal">AES-256</div>
+                                <div class="text-xs text-deep-teal/50 font-bold uppercase whitespace-nowrap" data-i18n="encryption" data-i18n-html="1">数据对称加密存储</div>
+                            </div>
+                            <div class="text-left">
+                                <div class="text-2xl font-bold text-deep-teal">99.2%</div>
+                                <div class="text-xs text-deep-teal/50 font-bold uppercase" data-i18n="satisfaction" data-i18n-html="1">用户满意度</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 桌面端小人区域 -->
+                    <div class="hidden md:flex flex-col items-center justify-start relative md:mt-2">
+                        <!-- 两个按钮 + 中英文切换 -->
+                        <div class="flex items-center gap-3 mb-6 w-full justify-end">
+                            <button onclick="toggleModal('api-modal')" class="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/80 hover:bg-white text-sm font-medium text-deep-teal border border-tech-cyan/20 hover:border-tech-cyan/50 transition-all shadow-sm">
+                                <i class="fa-solid fa-code text-tech-cyan-dark"></i>    
+                                <span data-i18n="apiCall" class="whitespace-nowrap">API调用</span>
+                            </button>
+                            <button onclick="toggleModal('about-modal')" class="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/80 hover:bg-white text-sm font-medium text-deep-teal border border-tech-cyan/20 hover:border-tech-cyan/50 transition-all shadow-sm">
+                                <i class="fa-solid fa-user-circle text-tech-cyan-dark"></i>
+                                <span data-i18n="aboutUs" class="whitespace-nowrap">关于我们</span>
+                            </button>
+                            <div class="flex items-center gap-1 rounded-lg bg-white/80 dark:bg-dark-surface/80 border border-tech-cyan/20 shadow-sm px-1 py-1.5">
+                                <button type="button" class="lang-zh-btn px-2.5 py-1 rounded-md text-sm font-bold text-deep-teal transition-colors" onclick="setLang('zh')" aria-label="中文">中</button>
+                                <span class="text-deep-teal/40 text-sm">/</span>
+                                <button type="button" class="lang-en-btn px-2.5 py-1 rounded-md text-sm font-bold text-deep-teal/60 hover:text-deep-teal transition-colors" onclick="setLang('en')" aria-label="English">EN</button>
+                            </div>
+                        </div>
+                        <!-- 对话气泡 -->
+                        <div class="absolute top-16 md:-left-24 lg:-left-36 z-20 animate-fade-in">
+                            <div class="speech-bubble bg-white rounded-2xl px-4 py-3 border border-tech-cyan/30 relative shadow-sm">
+                                <p id="bubble-text" class="text-sm font-medium text-deep-teal transition-opacity duration-700 ease-in-out text-center" data-i18n="helloAssistant" data-i18n-html="1">
+                                    您好！我是您的<br/>智能口腔助手
+                                </p>
+                                <!-- 气泡小尾巴 -->
+                                <div class="absolute bottom-0 right-6 transform translate-y-1/2 rotate-45 w-4 h-4 bg-white dark:bg-dark-surface border-r border-b border-tech-cyan/30"></div>
+                            </div>
+                        </div>
+                        <img src="assets/doctor-logo.png" alt="智能口腔终端" class="doctor-logo w-48 h-48 object-contain relative z-10 cursor-pointer hover:scale-105 transition-transform duration-300" onclick="updateBubbleText()" title="点击切换提示" />
+                    </div>
+
+                </div>
+
+                <!-- 桌面端用户数文案：独立一行避免与六数字模块重叠 -->
+                <div class="hidden md:block w-full text-center mt-4 md:mt-6">
+                    <p class="text-base text-deep-teal/70 font-medium">
+                        <span data-i18n="userCountPrefix">ToothHelper已为 </span><span id="user-count" class="font-bold text-tech-cyan-dark text-lg">99,888</span><span data-i18n="userCountSuffixDesktop"> 名用户提供了口腔健康指导</span>
+                    </p>
+                </div>
+
+                <div class="mb-4 md:mb-6 text-center">
+                     <button onclick="toggleModal('tutorial-modal')" class="text-deep-teal text-sm md:text-base hover:text-white transition-all inline-flex items-center gap-2 font-bold py-2.5 px-5 rounded-full bg-white hover:bg-tech-gradient border-2 border-tech-cyan/30 hover:border-tech-cyan shadow-md hover:shadow-lg hover:shadow-tech-cyan/30" data-i18n="viewGuideButton" data-i18n-html="1">
+                        <i class="fa-solid fa-camera"></i> 查看标准拍摄指南
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-6 lg:gap-8 relative z-10">
+                    
+                    <!-- 上牙列咬合面 - 手机端第1个，平板端第1个，桌面端第1个 -->
+                    <div class="relative order-1" data-label="上颌面视角">
+                        <div class="relative group aspect-video">
+                            <!-- 四角取景框 - 精准弧度同心圆版 -->
+                            <svg class="absolute -top-2 -left-2 w-14 h-14 text-gray-500/70 z-40 pointer-events-none" viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M 52 8 L 48 8 Q 8 8 8 48 L 8 52"/></svg>
+                            <svg class="absolute -top-2 -right-2 w-14 h-14 text-gray-500/70 z-40 pointer-events-none" viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M 4 8 L 8 8 Q 48 8 48 48 L 48 52"/></svg>
+                            <svg class="absolute -bottom-2 -left-2 w-14 h-14 text-gray-500/70 z-40 pointer-events-none" viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M 52 48 L 48 48 Q 8 48 8 8 L 8 4"/></svg>
+                            <svg class="absolute -bottom-2 -right-2 w-14 h-14 text-gray-500/70 z-40 pointer-events-none" viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M 4 48 L 8 48 Q 48 48 48 8 L 48 4"/></svg>
+                            
+                            <input type="file" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-30" accept="image/*" onchange="handleFile(this, 'preview-upper')" id="input-upper">
+                            <div class="upload-card h-full w-full rounded-[2rem] flex flex-col items-center justify-center text-center p-6 relative overflow-hidden">
+                                <div class="absolute inset-0 rounded-[2rem] overflow-hidden z-0">
+                                    <div class="absolute inset-0 bg-cover bg-center bg-no-repeat" style="background-image: url('assets/up.png');"></div>
+                                </div>
+                                <div class="white-overlay absolute inset-0 bg-white/60 z-0 rounded-[2rem]"></div>
+                        
+                                <div class="scan-line" style="animation-delay: 0.2s"></div>
+                                <div class="preview-placeholder relative z-20 transition-all duration-300 group-hover:-translate-y-2">
+                                    <div class="w-16 h-16 mx-auto mb-6 rounded-full bg-gray-600/40 backdrop-blur-sm flex items-center justify-center group-hover:bg-gray-600/50 transition-colors shadow-inner relative translate-y-6">
+                                        <i class="fa-solid fa-camera text-2xl text-gray-100 group-hover:scale-110 transition-transform duration-300"></i>
+                                    </div>
+                                    <h3 class="font-heading text-lg font-bold text-deep-teal mb-1" data-i18n="upperView">上颌面视角</h3>
+                                </div>
+                                <img id="preview-upper" class="absolute inset-0 w-full h-full object-cover hidden z-10" />
+                                <!-- 点击重拍按钮 -->
+                                <div class="retake-btn hidden absolute top-2 right-2 bg-black/50 px-2 py-1 rounded text-white text-xs flex items-center gap-1 cursor-pointer z-20" onclick="retakePhoto('input-upper', 'preview-upper')">
+                                    <i class="fa-solid fa-camera text-[10px]"></i>
+                                    <span data-i18n="retake">点击重拍</span>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- 图注 -->
+                        <p class="photo-label hidden text-xs text-deep-teal/70 text-center mt-2" data-i18n="upperView">上颌面视角</p>
+                    </div>
+                    
+                    <!-- 正面咬合视角 - 手机端第2个，平板端第2个，桌面端第2个 -->
+                    <div class="relative order-2" data-label="正面牙列视角">
+                        <div class="relative group aspect-video">
+                            <!-- 四角取景框 - 精准弧度同心圆版 -->
+                            <svg class="absolute -top-2 -left-2 w-14 h-14 text-gray-500/70 z-40 pointer-events-none" viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M 52 8 L 48 8 Q 8 8 8 48 L 8 52"/></svg>
+                            <svg class="absolute -top-2 -right-2 w-14 h-14 text-gray-500/70 z-40 pointer-events-none" viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M 4 8 L 8 8 Q 48 8 48 48 L 48 52"/></svg>
+                            <svg class="absolute -bottom-2 -left-2 w-14 h-14 text-gray-500/70 z-40 pointer-events-none" viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M 52 48 L 48 48 Q 8 48 8 8 L 8 4"/></svg>
+                            <svg class="absolute -bottom-2 -right-2 w-14 h-14 text-gray-500/70 z-40 pointer-events-none" viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M 4 48 L 8 48 Q 48 48 48 8 L 48 4"/></svg>
+                            
+                            <input type="file" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-30" accept="image/*" onchange="handleFile(this, 'preview-front')" id="input-front">
+                            <div class="upload-card h-full w-full rounded-[2rem] flex flex-col items-center justify-center text-center p-6 relative overflow-hidden">
+                                <div class="absolute inset-0 rounded-[2rem] overflow-hidden z-0">
+                                    <div class="absolute inset-0 bg-cover bg-center bg-no-repeat" style="background-image: url('assets/front.png');"></div>
+                                </div>
+                                <div class="white-overlay absolute inset-0 bg-white/60 z-0 rounded-[2rem]"></div>
+                        
+                                <div class="scan-line"></div>
+                                
+                                <div class="preview-placeholder relative z-20 transition-all duration-300 group-hover:-translate-y-2">
+                                    <div class="w-16 h-16 mx-auto mb-6 rounded-full bg-gray-600/40 backdrop-blur-sm flex items-center justify-center group-hover:bg-gray-600/50 transition-colors shadow-inner relative translate-y-6">
+                                        <i class="fa-solid fa-camera text-2xl text-gray-100 group-hover:scale-110 transition-transform duration-300"></i>
+                                    </div>
+                                    <h3 class="font-heading text-lg font-bold text-deep-teal mb-1" data-i18n="frontView">正面牙列视角</h3>
+                                </div>
+                                <img id="preview-front" class="absolute inset-0 w-full h-full object-cover hidden z-10" />
+                                <!-- 点击重拍按钮 -->
+                                <div class="retake-btn hidden absolute top-2 right-2 bg-black/50 px-2 py-1 rounded text-white text-xs flex items-center gap-1 cursor-pointer z-20" onclick="retakePhoto('input-front', 'preview-front')">
+                                    <i class="fa-solid fa-camera text-[10px]"></i>
+                                    <span data-i18n="retake">点击重拍</span>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- 图注 -->
+                        <p class="photo-label hidden text-xs text-deep-teal/70 text-center mt-2" data-i18n="frontView">正面牙列视角</p>
+                    </div>
+                    
+                    <!-- 下牙列咬合面 - 手机端第3个，平板端第3个，桌面端第3个 -->
+                    <div class="relative order-3" data-label="下颌面视角">
+                        <div class="relative group aspect-video">
+                            <!-- 四角取景框 - 精准弧度同心圆版 -->
+                            <svg class="absolute -top-2 -left-2 w-14 h-14 text-gray-500/70 z-40 pointer-events-none" viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M 52 8 L 48 8 Q 8 8 8 48 L 8 52"/></svg>
+                            <svg class="absolute -top-2 -right-2 w-14 h-14 text-gray-500/70 z-40 pointer-events-none" viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M 4 8 L 8 8 Q 48 8 48 48 L 48 52"/></svg>
+                            <svg class="absolute -bottom-2 -left-2 w-14 h-14 text-gray-500/70 z-40 pointer-events-none" viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M 52 48 L 48 48 Q 8 48 8 8 L 8 4"/></svg>
+                            <svg class="absolute -bottom-2 -right-2 w-14 h-14 text-gray-500/70 z-40 pointer-events-none" viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M 4 48 L 8 48 Q 48 48 48 8 L 48 4"/></svg>
+                            
+                            <input type="file" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-30" accept="image/*" onchange="handleFile(this, 'preview-lower')" id="input-lower">
+                            <div class="upload-card h-full w-full rounded-[2rem] flex flex-col items-center justify-center text-center p-6 relative overflow-hidden">
+                                <div class="absolute inset-0 rounded-[2rem] overflow-hidden z-0">
+                                    <div class="absolute inset-0 bg-cover bg-center bg-no-repeat" style="background-image: url('assets/down.png');"></div>
+                                </div>
+                                <div class="white-overlay absolute inset-0 bg-white/60 z-0 rounded-[2rem]"></div>
+                        
+                                <div class="scan-line" style="animation-delay: 0.4s"></div>
+                                <div class="preview-placeholder relative z-20 transition-all duration-300 group-hover:-translate-y-2">
+                                    <div class="w-16 h-16 mx-auto mb-6 rounded-full bg-gray-600/40 backdrop-blur-sm flex items-center justify-center group-hover:bg-gray-600/50 transition-colors shadow-inner relative translate-y-6">
+                                        <i class="fa-solid fa-camera text-2xl text-gray-100 group-hover:scale-110 transition-transform duration-300"></i>
+                                    </div>
+                                    <h3 class="font-heading text-lg font-bold text-deep-teal mb-1" data-i18n="lowerView">下颌面视角</h3>
+                                </div>
+                                <img id="preview-lower" class="absolute inset-0 w-full h-full object-cover hidden z-10" />
+                                <!-- 点击重拍按钮 -->
+                                <div class="retake-btn hidden absolute top-2 right-2 bg-black/50 px-2 py-1 rounded text-white text-xs flex items-center gap-1 cursor-pointer z-20" onclick="retakePhoto('input-lower', 'preview-lower')">
+                                    <i class="fa-solid fa-camera text-[10px]"></i>
+                                    <span data-i18n="retake">点击重拍</span>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- 图注 -->
+                        <p class="photo-label hidden text-xs text-deep-teal/70 text-center mt-2" data-i18n="lowerView">下颌面视角</p>
+                    </div>
+                </div>
+
+                <div class="mt-6 md:mt-4 flex flex-col relative z-20 bg-white/50 p-3 md:p-4 rounded-2xl border border-white shadow-sm">
+                    <!-- 顶部信息和按钮行 -->
+                    <div class="flex flex-col md:flex-row justify-between items-center mb-3 md:mb-0">
+                        <div class="flex flex-col md:flex-row items-center gap-2 md:gap-6 text-xs md:text-sm font-bold text-deep-teal/60 mb-3 md:mb-0 w-full md:w-auto">
+                            <!-- 第一行：服务器和模型 -->
+                            <div class="flex items-center gap-2 md:gap-3 justify-center w-full md:w-auto">
+                                <span class="flex items-center gap-1.5">
+                                    <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div> 
+                                    <span class="text-[11px] md:text-xs" data-i18n="serverOk">服务器连接正常</span>
+                                </span>
+                                <span class="h-3 w-[1px] bg-deep-teal/10"></span>
+                                <span class="flex items-center gap-1.5">
+                                    <i class="fa-solid fa-microchip text-tech-cyan-dark text-[10px] md:text-xs"></i> 
+                                    <span class="text-[11px] md:text-xs" data-i18n="modelName">DuYa口腔大模型 V1.5.1</span>
+                                </span>
+                            </div>
+                            <!-- 第二行：更新时间 -->
+                            <div class="hidden md:block h-4 w-[1px] bg-deep-teal/10"></div>
+                            <span class="flex items-center gap-1.5">
+                                <i class="fa-solid fa-clock text-tech-cyan-dark text-[10px] md:text-xs"></i> 
+                                <span class="text-[11px] md:text-xs" data-i18n="updatedAt">更新时间 Jun 30, 2026</span>
+                            </span>
+                        </div>
+                        
+                        <button id="analyze-btn" onclick="startAnalysis()" disabled class="w-full md:w-auto relative group overflow-hidden px-8 md:px-10 lg:px-12 py-3 md:py-3.5 lg:py-4 bg-tech-gradient text-deep-teal font-heading font-bold text-base md:text-lg lg:text-xl rounded-xl cursor-not-allowed opacity-50 shadow-lg shadow-tech-cyan/20 transition-all hover:scale-[1.02] hover:shadow-tech-cyan/40 disabled:hover:scale-100 disabled:hover:shadow-none">
+                            <span class="relative z-10 flex items-center justify-center gap-2 md:gap-3">
+                                <span data-i18n="startAnalysis">启动智能检测</span> <i class="fa-solid fa-stethoscope"></i>
+                            </span>
+                            <div class="absolute inset-0 bg-white/40 -translate-x-full group-hover:animate-scan-sweep z-0"></div>
+                        </button>
+                    </div>
+                    
+                    <!-- 用户协议勾选 -->
+                    <div class="flex items-center justify-center md:justify-start gap-2 pt-0">
+                        <label class="flex items-center gap-2 cursor-pointer group">
+                            <input type="checkbox" id="agreement-checkbox" onchange="checkAgreement()" class="w-4 h-4 rounded-full border-2 border-tech-cyan/50 text-tech-cyan-dark focus:ring-2 focus:ring-tech-cyan/20 cursor-pointer">
+                            <span class="text-[11px] md:text-xs text-deep-teal/60">
+                                <span data-i18n="agreement">我已阅读并同意</span>
+                                <button onclick="toggleModal('info-modal')" class="text-tech-cyan-dark hover:text-tech-cyan transition underline font-medium" data-i18n="agreementLink">系统说明与用户服务协议</button>
+                            </span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- 免责声明（未检测时显示） -->
+                <div id="disclaimer-before" class="mt-4 md:mt-8 text-center md:text-center px-2">
+                    <!-- 数据隐私提示（仅手机端） -->
+                    <div class="md:hidden mb-2 text-center">
+                        <div class="inline-flex items-center gap-2 text-deep-teal/60 text-xs font-medium">
+                            <i class="fa-solid fa-shield-halved text-tech-cyan-dark text-sm"></i> 
+                            <span data-i18n="noThirdParty">系统不会将您的数据发送给任何第三方</span>
+                        </div>
+                    </div>
+                    
+                    <p class="text-[10px] md:text-xs text-deep-teal/50 leading-relaxed max-w-3xl mx-auto text-left md:text-center" data-i18n="disclaimer">
+                        免责声明：本系统提供的口腔健康分析仅供参考，不能替代专业医生的诊断和治疗建议。如有口腔问题，请及时就医咨询专业口腔医生。本系统分析结果的准确性受拍摄质量、光线条件等多种因素影响，使用者应理性看待分析结果。
+                    </p>
+                </div>
+
+                <!-- 诊断检测进度区域 -->
+                <div id="diagnosis-panel" class="hidden mt-6 bg-white/60 backdrop-blur-sm rounded-2xl p-6 border border-tech-cyan/20">
+                    <h3 class="text-lg font-bold text-deep-teal mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-stethoscope text-tech-cyan-dark"></i>
+                        <span data-i18n="detectingInProgress">智能检测进行中</span>
+                    </h3>
+                    <div id="diagnosis-list" class="space-y-3">
+                        <!-- 诊断项目将动态插入这里 -->
+                    </div>
+                </div>
+
+                <!-- 免责声明（检测后显示） -->
+                <div id="disclaimer-after" class="hidden mt-6 md:mt-8 text-center md:text-center px-2">
+                    <!-- 数据隐私提示（仅手机端） -->
+                    <div class="md:hidden mb-2 text-center">
+                        <div class="inline-flex items-center gap-2 text-deep-teal/60 text-xs font-medium">
+                            <i class="fa-solid fa-shield-halved text-tech-cyan-dark text-sm"></i> 
+                            <span data-i18n="noThirdParty">系统不会将您的数据发送给任何第三方</span>
+                        </div>
+                    </div>
+                    
+                    <p class="text-[10px] md:text-xs text-deep-teal/50 leading-relaxed max-w-3xl mx-auto text-left md:text-center" data-i18n="disclaimer">
+                        免责声明：本系统提供的口腔健康分析仅供参考，不能替代专业医生的诊断和治疗建议。如有口腔问题，请及时就医咨询专业口腔医生。本系统分析结果的准确性受拍摄质量、光线条件等多种因素影响，使用者应理性看待分析结果。
+                    </p>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <div id="tutorial-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center">
+        <div class="absolute inset-0 bg-deep-teal/30 backdrop-blur-sm" onclick="toggleModal('tutorial-modal')"></div>
+        <div class="glass-panel rounded-[3rem] max-w-2xl md:max-w-3xl lg:max-w-4xl w-full mx-4 my-8 relative z-10 transform scale-95 opacity-0 transition-all bg-white shadow-2xl max-h-[85vh] overflow-hidden" id="tutorial-content">
+            <div class="p-8 overflow-y-auto custom-scrollbar h-full max-h-[85vh]">
+                <div class="text-center mb-6">
+                    <h2 class="font-heading text-2xl font-bold text-deep-teal mb-3" data-i18n="tutorialTitle">标准拍摄方法</h2>
+                    
+                    <!-- 拍摄方式切换 -->
+                    <div class="inline-flex bg-white/80 rounded-xl p-1 border border-tech-cyan/20">
+                        <button onclick="switchShootingMethod('other')" id="method-other" class="px-4 py-2 rounded-lg text-xs md:text-sm font-bold transition-all bg-tech-gradient text-deep-teal shadow-sm whitespace-nowrap flex items-center">
+                            <i class="fa-solid fa-user-group mr-1.5"></i><span data-i18n="methodOther">他人帮拍(推荐)</span>
+                        </button>
+                        <button onclick="switchShootingMethod('self')" id="method-self" class="px-4 py-2 rounded-lg text-xs md:text-sm font-bold transition-all text-deep-teal/60 hover:text-deep-teal whitespace-nowrap flex items-center">
+                            <i class="fa-solid fa-camera-retro mr-1.5"></i><span data-i18n="methodSelf">前置自拍</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 他人帮拍内容 -->
+                <div id="other-method" class="space-y-5">
+                    <div class="bg-gradient-to-r from-tech-cyan/5 to-teal-500/5 p-4 rounded-xl border border-tech-cyan/20">
+                        <p class="text-sm text-deep-teal text-center" data-i18n="tutorialOtherTip" data-i18n-html="1"><i class="fa-solid fa-info-circle mr-2"></i>建议由他人协助拍摄，可获得更清晰稳定的影像</p>
+                    </div>
+
+                    <!-- 示例照片 -->
+                    <div class="space-y-4">
+                        <div class="bg-white/60 p-3 md:p-4 rounded-xl border border-tech-cyan/10">
+                            <img src="method/other_up.png" alt="上颌拍摄" class="w-full h-48 md:h-64 object-contain rounded-lg mb-2 bg-gray-50">
+                            <h4 class="font-bold text-deep-teal mb-1 text-sm md:text-base" data-i18n="shootUpper">上颌拍摄</h4>
+                            <p class="text-sm md:text-base text-deep-teal/70 leading-relaxed" data-i18n="otherUpperDesc">抬头并大张嘴，拍摄者从斜下方拍摄，确保拍全所有上排牙齿的面。</p>
+                        </div>
+                        <div class="bg-white/60 p-3 md:p-4 rounded-xl border border-tech-cyan/10">
+                            <img src="method/other_front.png" alt="正面拍摄" class="w-full h-48 md:h-64 object-contain rounded-lg mb-2 bg-gray-50">
+                            <h4 class="font-bold text-deep-teal mb-1 text-sm md:text-base" data-i18n="shootFront">正面拍摄</h4>
+                            <p class="text-sm md:text-base text-deep-teal/70 leading-relaxed" data-i18n="otherFrontDesc">平视前方，上下牙稍微分开一点间隙，拍摄者正对嘴部拍摄牙齿外侧面。</p>
+                        </div>
+                        <div class="bg-white/60 p-3 md:p-4 rounded-xl border border-tech-cyan/10">
+                            <img src="method/other_down.png" alt="下颌拍摄" class="w-full h-48 md:h-64 object-contain rounded-lg mb-2 bg-gray-50">
+                            <h4 class="font-bold text-deep-teal mb-1 text-sm md:text-base" data-i18n="shootDown">下颌拍摄</h4>
+                            <p class="text-sm md:text-base text-deep-teal/70 leading-relaxed" data-i18n="otherDownDesc">低头并大张嘴，舌头向上卷曲，拍摄者从斜上方拍摄，清晰呈现下排牙齿的咬合面。</p>
+                        </div>
+                    </div>
+
+                    <!-- 拍摄要点 -->
+                    <div class="space-y-3">
+                        <h3 class="text-base font-bold text-deep-teal mb-3" data-i18n="tutorialPoints">拍摄要点</h3>
+                        <div class="flex gap-4 bg-white/60 p-4 rounded-xl border border-tech-cyan/10">
+                            <div class="flex-shrink-0 w-10 h-10 bg-tech-gradient rounded-lg flex items-center justify-center text-deep-teal font-heading font-bold text-lg -ml-5">1</div>
+                            <div>
+                                <h3 class="font-bold text-deep-teal mb-1 text-sm" data-i18n="point1Title">充足照明</h3>
+                                <p class="text-deep-teal/70 text-sm leading-relaxed" data-i18n="point1Desc">请在自然光充足处拍摄，或开启闪光灯。确保牙龈边缘清晰无阴影。</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-4 bg-white/60 p-4 rounded-xl border border-tech-cyan/10">
+                            <div class="flex-shrink-0 w-10 h-10 bg-tech-gradient rounded-lg flex items-center justify-center text-deep-teal font-heading font-bold text-lg -ml-5">2</div>
+                            <div>
+                                <h3 class="font-bold text-deep-teal mb-1 text-sm" data-i18n="point2Title">精确对焦</h3>
+                                <p class="text-deep-teal/70 text-sm leading-relaxed" data-i18n="point2Desc">点击屏幕对焦于牙齿表面。模糊的影像会导致 AI 分析失败。</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-4 bg-white/60 p-4 rounded-xl border border-tech-cyan/10">
+                            <div class="flex-shrink-0 w-10 h-10 bg-tech-gradient rounded-lg flex items-center justify-center text-deep-teal font-heading font-bold text-lg -ml-5">3</div>
+                            <div>
+                                <h3 class="font-bold text-deep-teal mb-1 text-sm" data-i18n="point3Title">完整视角</h3>
+                                <p class="text-deep-teal/70 text-sm leading-relaxed" data-i18n="point3Desc">拍摄上下颌面时请最大程度张口，确保能看到最后一颗磨牙，并保持稳定。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 前置自拍内容 -->
+                <div id="self-method" class="space-y-5 hidden">
+                    <div class="bg-gradient-to-r from-amber-50 to-orange-50 p-4 rounded-xl border border-amber-200">
+                        <p class="text-sm text-amber-800 text-center" data-i18n="tutorialSelfTip" data-i18n-html="1"><i class="fa-solid fa-triangle-exclamation mr-2"></i>自拍模式需注意保持手机稳定。</p>
+                    </div>
+
+                    <!-- 示例照片 -->
+                    <div class="space-y-4">
+                        <div class="bg-white/60 p-3 md:p-4 rounded-xl border border-tech-cyan/10">
+                            <img src="method/self_up.png" alt="上颌拍摄" class="w-full h-48 md:h-64 object-contain rounded-lg mb-2 bg-gray-50">
+                            <h4 class="font-bold text-deep-teal mb-1 text-sm md:text-base" data-i18n="shootUpper">上颌拍摄</h4>
+                            <p class="text-sm md:text-base text-deep-teal/70 leading-relaxed" data-i18n="selfUpperDesc">手机屏幕朝向面部并斜向上仰，头往后仰张大嘴，对准上排牙齿面。</p>
+                        </div>
+                        <div class="bg-white/60 p-3 md:p-4 rounded-xl border border-tech-cyan/10">
+                            <img src="method/self_front.png" alt="正面拍摄" class="w-full h-48 md:h-64 object-contain rounded-lg mb-2 bg-gray-50">
+                            <h4 class="font-bold text-deep-teal mb-1 text-sm md:text-base" data-i18n="shootFront">正面拍摄</h4>
+                            <p class="text-sm md:text-base text-deep-teal/70 leading-relaxed" data-i18n="selfFrontDesc">看着手机屏幕，上下牙稍稍分开一点缝隙，让镜头水平正对着牙齿中心。</p>
+                        </div>
+                        <div class="bg-white/60 p-3 md:p-4 rounded-xl border border-tech-cyan/10">
+                            <img src="method/self_down.png" alt="下颌拍摄" class="w-full h-48 md:h-64 object-contain rounded-lg mb-2 bg-gray-50">
+                            <h4 class="font-bold text-deep-teal mb-1 text-sm md:text-base" data-i18n="shootDown">下颌拍摄</h4>
+                            <p class="text-sm md:text-base text-deep-teal/70 leading-relaxed" data-i18n="selfDownDesc">手机屏幕朝向面部并斜向下倾，低头张大嘴，舌头向上卷曲，对准下排牙齿面。</p>
+                        </div>
+                    </div>
+
+                    <!-- 拍摄要点 -->
+                    <div class="space-y-3">
+                        <h3 class="text-base font-bold text-deep-teal mb-3" data-i18n="tutorialPoints">拍摄要点</h3>
+                        <div class="flex gap-4 bg-white/60 p-4 rounded-xl border border-tech-cyan/10">
+                            <div class="flex-shrink-0 w-10 h-10 bg-tech-gradient rounded-lg flex items-center justify-center text-deep-teal font-heading font-bold text-lg -ml-5">1</div>
+                            <div>
+                                <h3 class="font-bold text-deep-teal mb-1 text-sm" data-i18n="point1Title">充足照明</h3>
+                                <p class="text-deep-teal/70 text-sm leading-relaxed" data-i18n="point1SelfDesc">确保光线充足，避免阴影和反光。</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-4 bg-white/60 p-4 rounded-xl border border-tech-cyan/10">
+                            <div class="flex-shrink-0 w-10 h-10 bg-tech-gradient rounded-lg flex items-center justify-center text-deep-teal font-heading font-bold text-lg -ml-5">2</div>
+                            <div>
+                                <h3 class="font-bold text-deep-teal mb-1 text-sm" data-i18n="point2SelfTitle">保持稳定</h3>
+                                <p class="text-deep-teal/70 text-sm leading-relaxed" data-i18n="point2SelfDesc">确保手机稳定，避免抖动和模糊。</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-4 bg-white/60 p-4 rounded-xl border border-tech-cyan/10">
+                            <div class="flex-shrink-0 w-10 h-10 bg-tech-gradient rounded-lg flex items-center justify-center text-deep-teal font-heading font-bold text-lg -ml-5">3</div>
+                            <div>
+                                <h3 class="font-bold text-deep-teal mb-1 text-sm" data-i18n="point3SelfTitle">调整距离</h3>
+                                <p class="text-deep-teal/70 text-sm leading-relaxed" data-i18n="point3SelfDesc">保持20-30cm的拍摄距离，确保牙齿清晰可见且不变形。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-6 flex justify-center">
+                    <button onclick="toggleModal('tutorial-modal')" class="px-10 py-3 rounded-xl bg-tech-gradient text-deep-teal text-sm font-bold transition shadow-lg hover:scale-105" data-i18n="close">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="info-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center">
+        <div class="absolute inset-0 bg-deep-teal/30 backdrop-blur-sm" onclick="toggleModal('info-modal')"></div>
+        <div class="glass-panel rounded-[3rem] max-w-4xl w-full mx-4 relative z-10 transform scale-95 opacity-0 transition-all bg-white shadow-2xl max-h-[85vh] overflow-hidden" id="info-content">
+            <div class="p-8 overflow-y-auto custom-scrollbar h-full max-h-[85vh]">
+            <div class="text-center mb-6 relative">
+                <h2 class="font-heading text-2xl font-bold text-deep-teal mb-2">ToothHelper 系统说明与用户服务协议</h2>
+                <p class="text-deep-teal/40 text-xs mt-2">最后修订时间：2026年1月30日</p>
+            </div>
+            
+            <div class="space-y-6 text-sm text-deep-teal/80 leading-relaxed">
+                <!-- 引言 -->
+                <div class="bg-med-base/30 p-5 rounded-2xl">
+                    <p class="font-medium">本系统是智能口腔健康平台，旨在利用人工智能技术协助用户进行口腔健康筛查与辅助识别。</p>
+                    <p class="mt-3 text-red-600 font-bold">在使用本系统前，请您务必仔细阅读并理解以下说明：</p>
+                </div>
+
+                <!-- 1. AI辅助识别的局限性 -->
+                <div>
+                    <h3 class="text-lg font-bold text-deep-teal mb-3">
+                        1. AI 辅助识别结论的局限性与免责声明
+                    </h3>
+                    <div class="bg-white/60 p-4 rounded-xl space-y-3 border border-tech-cyan/10">
+                        <p>本系统所提供的任何分析结果、自动标注<strong class="text-deep-teal">仅供科研探讨、健康筛查及临床辅助参考</strong>，不具有法律效力，亦不作为正式的医学诊断证明。</p>
+                        
+                        <div class="mb-3">
+                            <p class="font-semibold text-deep-teal mb-2">非医疗诊断替代品：</p>
+                            <p class="text-xs">AI 模型的输出结果受限于训练数据集的覆盖范围、拍摄角度、光照条件及图像分辨率。系统无法代替专业执业医师的面对面临床检查。任何关于疾病确诊、治疗方案的制定，均须由具备执业资质的口腔医生进行最终裁定。</p>
+                        </div>
+
+                        <div class="mb-3">
+                            <p class="font-semibold text-deep-teal mb-2">偏差可能性：</p>
+                            <p class="text-xs">深度学习模型存在误报漏报的可能性。用户不应仅根据本系统的识别结果自行采取医疗措施或购买药物。</p>
+                        </div>
+
+                        <div class="mb-3">
+                            <p class="font-semibold text-deep-teal mb-2">风险承担：</p>
+                            <p class="text-xs">用户因盲目信任系统识别结果而延误治疗或进行错误处置所造成的后果，本系统及其开发团队不承担法律责任。</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. 数据隐私与安全 -->
+                <div>
+                    <h3 class="text-lg font-bold text-deep-teal mb-3">
+                        2. 数据隐私与安全保护政策
+                    </h3>
+                    <div class="bg-white/60 p-4 rounded-xl space-y-4 border border-tech-cyan/10">
+                        <p class="text-xs">我们深知医疗数据的高度敏感性，ToothHelper平台严格遵守相关法律法规。</p>
+
+                        <div>
+                            <h4 class="font-bold text-deep-teal mb-2 text-sm">2.1 数据脱敏处理</h4>
+                            <p class="text-xs">系统会立即识别并移除图像中可能包含的个人身份信息，遵循"最小化数据留存"原则。</p>
+                        </div>
+
+                        <div>
+                            <h4 class="font-bold text-deep-teal mb-2 text-sm">2.2 加密传输与存储</h4>
+                            <div class="grid grid-cols-2 gap-3 text-xs">
+                                <div class="bg-tech-cyan/5 p-3 rounded-lg">
+                                    <p class="font-semibold mb-1">传输安全</p>
+                                    <p>客户端与服务器之间的所有数据交互均通过 SSL/TLS 协议加密。</p>
+                                </div>
+                                <div class="bg-tech-cyan/5 p-3 rounded-lg">
+                                    <p class="font-semibold mb-1">存储安全</p>
+                                    <p>服务器端采用行业标准的加密算法，未经授权无法查看原始图像。</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h4 class="font-bold text-deep-teal mb-2 text-sm">2.3 数据用途限制</h4>
+                            <ul class="text-xs space-y-1 list-disc list-inside">
+                                <li>为您提供实时的 AI 辅助识别服务</li>
+                                <li>在获得您明确授权的前提下，作为提升 AI 模型准确率的匿名训练素材</li>
+                            </ul>
+                            <p class="text-xs mt-2 font-semibold text-green-700">✓ 我们承诺绝不向任何第三方商业机构出售或共享您的医疗原始数据</p>
+                        </div>
+
+                        <div>
+                            <h4 class="font-bold text-deep-teal mb-2 text-sm">2.4 用户控制权</h4>
+                            <p class="text-xs">用户有权随时申请注销账户，并要求彻底删除其上传的所有图像及相关识别历史记录。</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. 用户使用规范 -->
+                <div>
+                    <h3 class="text-lg font-bold text-deep-teal mb-3">
+                        3. 用户使用规范与责任
+                    </h3>
+                    <div class="bg-white/60 p-4 rounded-xl space-y-3 border border-tech-cyan/10">
+                        <div class="mb-3">
+                            <p class="font-semibold text-deep-teal mb-2">图像质量义务：</p>
+                            <p class="text-xs">用户应确保上传的口内照清晰、无严重遮挡。因图像模糊导致的识别偏离由用户自行承担。</p>
+                        </div>
+
+                        <div class="mb-3">
+                            <p class="font-semibold text-deep-teal mb-2">合法合规：</p>
+                            <p class="text-xs">禁止利用本系统上传任何违反法律法规、侵犯他人隐私或包含不当内容的图像。</p>
+                        </div>
+
+                        <div class="mb-3">
+                            <p class="font-semibold text-deep-teal mb-2">专业人员声明：</p>
+                            <p class="text-xs">若本系统被用于诊所或医院环境，操作者应为具备相关医学背景的专业人员，且必须对 AI 输出的结果进行二次审核与签字确认。</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. 技术支持 -->
+                <div>
+                    <h3 class="text-lg font-bold text-deep-teal mb-3">
+                        4. 技术支持与版本更迭
+                    </h3>
+                    <div class="bg-white/60 p-4 rounded-xl border border-tech-cyan/10 text-xs">
+                        <p>ToothHelper 仍处于持续迭代中。随着算法的优化，系统识别的精度将不断提升。若您在使用过程中发现系统存在逻辑错误或安全漏洞，请及时联系我们的开发团队。</p>
+                    </div>
+                </div>
+
+                <!-- 开发者注 -->
+                <div class="bg-gradient-to-r from-tech-cyan/10 to-teal-500/10 p-4 rounded-xl border border-tech-cyan/20">
+                    <p class="text-xs italic text-deep-teal/70">
+                        <strong>开发者注：</strong>本系统说明旨在明确 AI 辅助工具的工具属性，强调人类医生在决策中的核心地位。保护隐私不仅是法律要求，更是生物医学工程伦理的底线。
+                    </p>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-center">
+                <button onclick="toggleModal('info-modal')" class="px-10 py-3 rounded-xl bg-tech-gradient text-deep-teal text-sm font-bold transition shadow-lg hover:scale-105">我已阅读并同意</button>
+            </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- API调用申请模态框 -->
+    <div id="api-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center">
+        <div class="absolute inset-0 bg-deep-teal/30 backdrop-blur-sm" onclick="toggleModal('api-modal')"></div>
+        <div class="glass-panel rounded-[3rem] max-w-2xl md:max-w-3xl w-full mx-4 my-8 relative z-10 transform scale-95 opacity-0 transition-all bg-white shadow-2xl max-h-[85vh] overflow-hidden" id="api-content">
+            <div class="p-4 md:p-6 lg:p-8 overflow-y-auto custom-scrollbar h-full max-h-[85vh]">
+                <div class="text-center mb-6">
+                    <h2 class="font-heading text-2xl font-bold text-deep-teal mb-2" data-i18n="apiModalTitle">API 调用申请</h2>
+                    <p class="text-deep-teal/60 text-sm" data-i18n="apiModalIntro">我们已开放 API 调用功能，欢迎申请接入</p>
+                </div>
+
+                <div class="bg-tech-cyan/5 p-3 md:p-4 lg:p-6 rounded-2xl mb-6">
+                    <div class="flex items-start gap-3 mb-4">
+                        <i class="fa-solid fa-circle-check text-tech-cyan-dark text-lg mt-1"></i>
+                        <div>
+                            <h3 class="font-bold text-deep-teal mb-2" data-i18n="apiFeaturesTitle">开放的 API 功能</h3>
+                            <ul class="text-sm text-deep-teal/70 space-y-1">
+                                <li class="pl-4" style="text-indent: -1em;" data-i18n="apiFeature1">• 口腔影像(口内照、CBCT、IOS)智能疾病识别接口</li>
+                                <li class="pl-4" style="text-indent: -1em;" data-i18n="apiFeature2">• 牙齿 FDI 编号自动标注接口</li>
+                                <li class="pl-4" style="text-indent: -1em;" data-i18n="apiFeature3">• 口腔影像智能分析报告生成接口</li>
+                                <li class="pl-4" style="text-indent: -1em;" data-i18n="apiFeature4">• 口腔数字化重建(口内照、CBCT、IOS)接口</li>
+                                <li class="pl-4" style="text-indent: -1em;" data-i18n="apiFeature5">• 其他定制化需求</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <form class="space-y-4" onsubmit="submitAPIRequest(event)">
+                    <div>
+                        <label class="block text-sm font-bold text-deep-teal mb-2"><span data-i18n="contactPhone">联系手机</span> <span class="text-red-500">*</span></label>
+                        <input type="tel" id="api-phone" required pattern="[0-9]{11}" data-i18n-placeholder="apiPhonePlaceholder" placeholder="请输入11位手机号" class="w-full px-4 py-3 rounded-xl border border-tech-cyan/20 focus:border-tech-cyan focus:outline-none focus:ring-2 focus:ring-tech-cyan/20 transition-all">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-bold text-deep-teal mb-2"><span data-i18n="applicationScenario">应用场景</span> <span class="text-red-500">*</span></label>
+                        <select id="api-scenario" required class="w-full px-4 py-3 rounded-xl border border-tech-cyan/20 focus:border-tech-cyan focus:outline-none focus:ring-2 focus:ring-tech-cyan/20 transition-all bg-white">
+                            <option value="" data-i18n-option="selectScenario">请选择应用场景</option>
+                            <option value="hospital" data-i18n-option="scenarioHospital">公立医院</option>
+                            <option value="clinic" data-i18n-option="scenarioClinic">私立诊所</option>
+                            <option value="company" data-i18n-option="scenarioCompany">科技企业</option>
+                            <option value="research" data-i18n-option="scenarioResearch">科研机构</option>
+                            <option value="other" data-i18n-option="scenarioOther">其他</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-bold text-deep-teal mb-2" data-i18n="notesOptional">备注说明（选填）</label>
+                        <textarea id="api-notes" rows="3" data-i18n-placeholder="notesPlaceholder" placeholder="请简要描述您的使用需求..." class="w-full px-4 py-3 rounded-xl border border-tech-cyan/20 focus:border-tech-cyan focus:outline-none focus:ring-2 focus:ring-tech-cyan/20 transition-all resize-none"></textarea>
+                    </div>
+
+                    <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                        <p class="text-xs text-amber-800" data-i18n="apiSubmitNote" data-i18n-html="1">
+                            <i class="fa-solid fa-info-circle mr-2"></i>提交后，我们的技术团队将在 <strong>1-2个工作日内</strong> 与您联系，提供 API 密钥及接入文档。
+                        </p>
+                    </div>
+
+                    <div class="flex gap-3 pt-2">
+                        <button type="button" onclick="toggleModal('api-modal')" class="flex-1 px-6 py-3 rounded-xl bg-white hover:bg-gray-50 text-deep-teal text-sm font-bold transition border border-deep-teal/20" data-i18n="cancel">取消</button>
+                        <button type="submit" class="flex-1 px-6 py-3 rounded-xl bg-tech-gradient text-deep-teal text-sm font-bold transition shadow-lg hover:scale-105" data-i18n="submit">提交申请</button>
+                    </div>
+                </form>
+
+                <div class="mt-6 pt-6 border-t border-tech-cyan/10 text-center">
+                    <p class="text-xs text-deep-teal/60">
+                        <span data-i18n="apiContact">如有疑问，请联系我们：</span><a href="mailto:contact@toothhelper.cn" class="text-tech-cyan-dark font-semibold hover:underline">contact@toothhelper.cn</a>
+                    </p>
+                </div>
+            </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 关于我们模态框 -->
+    <div id="about-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center">
+        <div class="absolute inset-0 bg-deep-teal/30 backdrop-blur-sm" onclick="toggleModal('about-modal')"></div>
+        <div class="glass-panel rounded-[3rem] max-w-4xl w-full mx-4 my-8 relative z-10 transform scale-95 opacity-0 transition-all bg-white shadow-2xl max-h-[85vh] overflow-hidden" id="about-content">
+            <div class="p-8 overflow-y-auto custom-scrollbar h-full max-h-[85vh]">
+                <div class="text-center mb-6">
+                    <h2 class="font-heading text-2xl font-bold text-deep-teal mb-2" data-i18n="aboutModalTitle">关于我们</h2>
+                    <p class="text-lg text-tech-cyan-dark font-semibold" data-i18n="aboutTagline">用AI重新定义口腔健康的未来</p>
+                </div>
+
+                <div class="space-y-5 text-sm text-deep-teal/80 leading-relaxed">
+                    <!-- 我们的愿景 -->
+                    <div>
+                        <h3 class="text-lg font-bold text-deep-teal mb-3 flex items-center gap-2">
+                            <i class="fa-solid fa-lightbulb text-tech-cyan-dark"></i>
+                            <span data-i18n="aboutVision">我们的愿景</span>
+                        </h3>
+                        <div class="bg-gradient-to-r from-tech-cyan/5 to-teal-500/5 p-4 rounded-xl border border-tech-cyan/10">
+                            <p class="text-sm leading-relaxed" data-i18n="aboutVisionText">
+                                在 ToothHelper，我们相信科技的力量能让专业的口腔诊断变得触手可及。我们致力于通过 DuYa 口腔大模型，将顶尖的 AI 算法与深度学习技术融合，为每一位用户提供精准、快速且便捷的数字化口腔健康方案。
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- 顶尖跨学科团队 -->
+                    <div>
+                        <h3 class="text-lg font-bold text-deep-teal mb-3 flex items-center gap-2">
+                            <i class="fa-solid fa-users text-tech-cyan-dark"></i>
+                            <span data-i18n="aboutTeam">顶尖跨学科团队</span>
+                        </h3>
+                        <p class="mb-3 text-sm" data-i18n="aboutTeamIntro">我们的团队是创新的引擎，由来自 Columbia University、University of North Carolina、The University of Sydney、The University of Hong Kong 的精英骨干组成，汇集了人工智能、医学影像、临床医学的多领域专家。</p>
+                        
+                        <div class="space-y-3">
+                            <div class="bg-white/60 p-4 rounded-xl border border-tech-cyan/10">
+                                <h4 class="font-bold text-deep-teal mb-2 flex items-center gap-2">
+                                    <i class="fa-solid fa-brain text-tech-cyan-dark text-sm"></i>
+                                    <span data-i18n="aboutAI4M">AI4M 团队</span>
+                                </h4>
+                                <p class="text-xs" data-i18n="aboutAI4MText">深耕计算机视觉（CV）与大语言模型（LLM）领域，自主研发DuYa Oral Foundation Model，实现对口腔疾病的精准识别与分析。</p>
+                            </div>
+
+                            <div class="bg-white/60 p-4 rounded-xl border border-tech-cyan/10">
+                                <h4 class="font-bold text-deep-teal mb-2 flex items-center gap-2">
+                                    <i class="fa-solid fa-microscope text-tech-cyan-dark text-sm"></i>
+                                    <span data-i18n="aboutClinical">临床医学团队</span>
+                                </h4>
+                                <p class="text-xs" data-i18n="aboutClinicalText">拥有深厚的医学背景与临床经验，将临床医学逻辑融入算法开发，提升模型的临床适用性。</p>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- 为什么选择 -->
+                    <div>
+                        <h3 class="text-lg font-bold text-deep-teal mb-3 flex items-center gap-2">
+                            <i class="fa-solid fa-star text-tech-cyan-dark"></i>
+                            <span data-i18n="aboutWhy">为什么选择 ToothHelper？</span>
+                        </h3>
+                        <div class="grid md:grid-cols-3 gap-3">
+                            <div class="bg-tech-cyan/5 p-3 rounded-xl text-center">
+                                <i class="fa-solid fa-graduation-cap text-2xl text-tech-cyan-dark mb-2"></i>
+                                <h4 class="font-bold text-deep-teal mb-1 text-sm" data-i18n="aboutCard1Title">学术驱动的创新</h4>
+                                <p class="text-xs" data-i18n="aboutCard1Text">背靠顶尖学府的科研环境，技术方案经过反复验证与迭代，始终走在行业前沿。</p>
+                            </div>
+                            <div class="bg-tech-cyan/5 p-3 rounded-xl text-center">
+                                <i class="fa-solid fa-code text-2xl text-tech-cyan-dark mb-2"></i>
+                                <h4 class="font-bold text-deep-teal mb-1 text-sm" data-i18n="aboutCard2Title">全栈自研技术</h4>
+                                <p class="text-xs" data-i18n="aboutCard2Text">从算法模型到云端部署，掌握完整的核心技术闭环。</p>
+                            </div>
+                            <div class="bg-tech-cyan/5 p-3 rounded-xl text-center">
+                                <i class="fa-solid fa-heart text-2xl text-tech-cyan-dark mb-2"></i>
+                                <h4 class="font-bold text-deep-teal mb-1 text-sm" data-i18n="aboutCard3Title">以人为本的初衷</h4>
+                                <p class="text-xs" data-i18n="aboutCard3Text">致力于提供最有温度的智能医疗体验，无论临床还是居家。</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 联系我们 -->
+                    <div class="bg-gradient-to-r from-tech-cyan/5 to-teal-500/5 p-4 rounded-xl border border-tech-cyan/20">
+                        <h3 class="text-base font-bold text-deep-teal mb-2 text-center" data-i18n="aboutContact">联系我们</h3>
+                        <div class="text-center space-y-2 text-xs">
+                            <p><i class="fa-solid fa-envelope mr-2 text-tech-cyan-dark"></i><a href="mailto:contact@toothhelper.cn" class="text-tech-cyan-dark font-semibold hover:underline">contact@toothhelper.cn</a></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-5 flex justify-center">
+                    <button onclick="toggleModal('about-modal')" class="px-10 py-3 rounded-xl bg-tech-gradient text-deep-teal text-sm font-bold transition shadow-lg hover:scale-105" data-i18n="close">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 10种疾病说明模态框 -->
+    <div id="disease-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center">
+        <div class="absolute inset-0 bg-deep-teal/30 backdrop-blur-sm" onclick="toggleModal('disease-modal')"></div>
+        <div class="glass-panel rounded-[3rem] max-w-2xl md:max-w-3xl lg:max-w-4xl w-full mx-4 my-8 relative z-10 transform scale-95 opacity-0 transition-all bg-white shadow-2xl max-h-[85vh] overflow-hidden" id="disease-content">
+            <div class="p-8 overflow-y-auto custom-scrollbar h-full max-h-[85vh]">
+            <div class="text-center mb-6 relative">
+                <div class="relative w-20 h-20 mx-auto mb-4">
+                    <div class="absolute inset-0 bg-gradient-to-br from-tech-cyan via-teal-400 to-tech-cyan-dark rounded-3xl shadow-2xl shadow-tech-cyan/40 animate-pulse-slow"></div>
+                    <div class="absolute inset-0.5 bg-white rounded-3xl"></div>
+                    <div class="absolute inset-2 bg-gradient-to-br from-tech-cyan via-teal-400 to-tech-cyan-dark rounded-2xl flex items-center justify-center">
+                        <i class="fa-solid fa-tooth text-white text-3xl"></i>
+                    </div>
+                </div>
+                <h2 class="font-heading text-2xl font-bold text-deep-teal mb-2" data-i18n="diseaseModalTitle">可识别的10种口腔问题</h2>
+                <p class="text-deep-teal/60 text-sm" data-i18n="diseaseModalIntro">DuYa口腔大模型已训练识别以下常见口腔问题</p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
+                <div class="flex items-start gap-3 p-3 bg-med-base/30 rounded-xl">
+                    <div class="w-6 h-6 rounded-full bg-tech-cyan-dark/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span class="text-tech-cyan-dark text-xs font-bold">1</span>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-deep-teal text-sm" data-i18n="d1Name">龋齿</h4>
+                        <p class="text-xs text-deep-teal/60" data-i18n="d1Desc">牙齿硬组织的细菌性疾病</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-start gap-3 p-3 bg-med-base/30 rounded-xl">
+                    <div class="w-6 h-6 rounded-full bg-tech-cyan-dark/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span class="text-tech-cyan-dark text-xs font-bold">2</span>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-deep-teal text-sm" data-i18n="d2Name">残冠</h4>
+                        <p class="text-xs text-deep-teal/60" data-i18n="d2Desc">牙冠大部分缺损的残留牙根</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-start gap-3 p-3 bg-med-base/30 rounded-xl">
+                    <div class="w-6 h-6 rounded-full bg-tech-cyan-dark/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span class="text-tech-cyan-dark text-xs font-bold">3</span>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-deep-teal text-sm" data-i18n="d3Name">牙磨损</h4>
+                        <p class="text-xs text-deep-teal/60" data-i18n="d3Desc">牙齿表面的物理性磨耗</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-start gap-3 p-3 bg-med-base/30 rounded-xl">
+                    <div class="w-6 h-6 rounded-full bg-tech-cyan-dark/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span class="text-tech-cyan-dark text-xs font-bold">4</span>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-deep-teal text-sm" data-i18n="d4Name">楔状缺损</h4>
+                        <p class="text-xs text-deep-teal/60" data-i18n="d4Desc">牙颈部硬组织缺损</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-start gap-3 p-3 bg-med-base/30 rounded-xl">
+                    <div class="w-6 h-6 rounded-full bg-tech-cyan-dark/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span class="text-tech-cyan-dark text-xs font-bold">5</span>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-deep-teal text-sm" data-i18n="d5Name">牙龈退缩</h4>
+                        <p class="text-xs text-deep-teal/60" data-i18n="d5Desc">牙龈组织向根方退缩</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-start gap-3 p-3 bg-med-base/30 rounded-xl">
+                    <div class="w-6 h-6 rounded-full bg-tech-cyan-dark/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span class="text-tech-cyan-dark text-xs font-bold">6</span>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-deep-teal text-sm" data-i18n="d6Name">氟牙症</h4>
+                        <p class="text-xs text-deep-teal/60" data-i18n="d6Desc">氟摄入过量导致的牙齿发育缺陷</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-start gap-3 p-3 bg-med-base/30 rounded-xl">
+                    <div class="w-6 h-6 rounded-full bg-tech-cyan-dark/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span class="text-tech-cyan-dark text-xs font-bold">7</span>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-deep-teal text-sm" data-i18n="d7Name">牙列拥挤</h4>
+                        <p class="text-xs text-deep-teal/60" data-i18n="d7Desc">牙齿排列空间不足导致的拥挤</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-start gap-3 p-3 bg-med-base/30 rounded-xl">
+                    <div class="w-6 h-6 rounded-full bg-tech-cyan-dark/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span class="text-tech-cyan-dark text-xs font-bold">8</span>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-deep-teal text-sm" data-i18n="d8Name">牙齿颜色</h4>
+                        <p class="text-xs text-deep-teal/60" data-i18n="d8Desc">牙齿色泽异常改变</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-start gap-3 p-3 bg-med-base/30 rounded-xl">
+                    <div class="w-6 h-6 rounded-full bg-tech-cyan-dark/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span class="text-tech-cyan-dark text-xs font-bold">9</span>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-deep-teal text-sm" data-i18n="d9Name">牙结石</h4>
+                        <p class="text-xs text-deep-teal/60" data-i18n="d9Desc">钙化的牙菌斑沉积物</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-start gap-3 p-3 bg-med-base/30 rounded-xl">
+                    <div class="w-6 h-6 rounded-full bg-tech-cyan-dark/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span class="text-tech-cyan-dark text-xs font-bold">10</span>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-deep-teal text-sm" data-i18n="d10Name">牙龈炎</h4>
+                        <p class="text-xs text-deep-teal/60" data-i18n="d10Desc">牙龈组织的炎症</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-6 flex justify-center">
+                <button onclick="toggleModal('disease-modal')" class="px-8 py-3 rounded-xl bg-tech-gradient text-deep-teal text-sm font-bold transition hover:shadow-lg" data-i18n="diseaseGotIt">我知道了</button>
+            </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 问卷调查模态框 -->
+    <div id="survey-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-3 md:p-4">
+        <div class="absolute inset-0 bg-deep-teal/30 backdrop-blur-sm" onclick="closeSurvey()"></div>
+        <div class="glass-panel rounded-3xl md:rounded-[3rem] max-w-2xl md:max-w-3xl w-full relative z-10 transform scale-95 opacity-0 transition-all shadow-2xl flex flex-col overflow-hidden" style="max-height: 95vh;" id="survey-content">
+            <button onclick="closeSurvey()" class="absolute top-4 right-4 md:top-6 md:right-6 w-9 h-9 md:w-10 md:h-10 rounded-full bg-deep-teal/10 hover:bg-deep-teal/20 transition-colors flex items-center justify-center z-20">
+                <i class="fa-solid fa-xmark text-deep-teal text-lg md:text-xl"></i>
+            </button>
+            
+            <div class="flex-1 overflow-y-auto p-5 md:p-8 pb-3 md:pb-4">
+                <div class="text-center mb-5 md:mb-6">
+                    <h2 class="text-xl md:text-2xl font-heading font-bold text-deep-teal mb-1.5" data-i18n="surveyTitle">用户体验调研</h2>
+                    <p class="text-xs md:text-sm text-deep-teal/60" data-i18n="surveyIntro">请回答以下3个问题，帮助我们改进服务</p>
+                </div>
+
+                <form id="survey-form" class="space-y-4 md:space-y-5">
+                    <!-- 问题将通过JavaScript动态生成 -->
+                </form>
+            </div>
+
+            <div class="flex-shrink-0 p-5 md:p-8 pt-3 md:pt-4 border-t border-gray-100 bg-gradient-to-t from-gray-50/50 to-transparent">
+                <button onclick="submitSurvey()" class="w-full px-6 py-3.5 md:py-4 bg-tech-gradient text-deep-teal font-heading font-bold text-base md:text-lg rounded-xl shadow-lg hover:shadow-xl transition-all hover:scale-[1.02]">
+                    <span class="flex items-center justify-center gap-2">
+                        <span data-i18n="submitSurveyBtn">提交问卷并查看报告</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 图片放大模态框 -->
+    <div id="image-modal" class="fixed inset-0 z-[200] hidden flex items-center justify-center p-4" onclick="closeImageModal()">
+        <div class="absolute inset-0 bg-black/90"></div>
+        <div class="relative z-10 max-w-6xl w-full">
+            <button onclick="closeImageModal()" class="absolute -top-14 right-0 text-white hover:text-tech-cyan transition-colors">
+                <i class="fa-solid fa-xmark text-4xl"></i>
+            </button>
+            <h3 id="image-modal-title" class="text-xl font-bold text-white mb-4 text-center"></h3>
+            <img id="image-modal-img" src="" class="w-full h-auto" alt="放大图片">
+        </div>
+    </div>
+
+    <script>
+        /* ==========================================
+           中英文切换 i18n
+           ========================================== */
+        window.currentLang = localStorage.getItem('toothhelper-lang') || 'zh';
+        
+        const I18N = {
+            zh: {
+                title: 'ToothHelper | 数字口腔医疗影像系统',
+                noThirdParty: '系统不会将您的数据发送给任何第三方',
+                smartOralSystem: '智能口腔健康系统',
+                apiCall: 'API调用',
+                aboutUs: '关于我们',
+                heroDesc: '基于深度学习的计算机视觉技术（DuYa Model），1分钟内快速完成全口健康状况分析。请按照标准上传3张牙齿照片以启动分析。',
+                helloAssistant: '您好！我是您的<br/>智能口腔助手',
+                userCountPrefix: 'ToothHelper已为 ',
+                userCountSuffix: ' 名用户提供口腔健康指导',
+                userCountSuffixDesktop: ' 名用户提供了口腔健康指导',
+                viewGuide: '查看标准拍摄指南',
+                viewGuideButton: '<i class="fa-solid fa-camera"></i> 查看标准拍摄指南',
+                upperView: '上颌面视角',
+                frontView: '正面牙列视角',
+                lowerView: '下颌面视角',
+                retake: '点击重拍',
+                startAnalysis: '启动智能检测',
+                analyzing: '分析中...',
+                analysisDone: '检测完成',
+                serverOk: '服务器连接正常',
+                modelName: 'DuYa口腔大模型 V1.5.1',
+                updatedAt: '更新时间 Jun 30, 2026',
+                agreement: '我已阅读并同意',
+                agreementLink: '系统说明与用户服务协议',
+                disclaimer: '免责声明：本系统提供的口腔健康分析仅供参考，不能替代专业医生的诊断和治疗建议。如有口腔问题，请及时就医咨询专业口腔医生。本系统分析结果的准确性受拍摄质量、光线条件等多种因素影响，使用者应理性看待分析结果。',
+                detectResult: '查看检测结果',
+                viewReport: '查看专业版报告',
+                shareReport: '分享报告',
+                zoomIn: '点击放大',
+                detecting: '正在检测',
+                kinds: '可识别问题种类',
+                kindsDesktop: '可识别疾病种类',
+                stat10Value: '10种',
+                accuracy: '综合识别准确率',
+                timeCost: '分析耗时',
+                params: '模型参数量',
+                encryption: '数据对称加密存储',
+                satisfaction: '用户满意度',
+                efficiency: '就诊效率提升',
+                clickTip: '点击切换提示',
+                smartTerminal: '智能口腔终端',
+                detectingInProgress: '智能检测进行中',
+                surveyTitle: '用户体验调研',
+                surveyIntro: '请回答以下3个问题，帮助我们改进服务',
+                submitSurveyBtn: '提交问卷并查看报告',
+                apiModalTitle: 'API 调用申请',
+                apiModalIntro: '我们已开放 API 调用功能，欢迎申请接入',
+                apiFeaturesTitle: '开放的 API 功能',
+                apiFeature1: '• 口腔影像(口内照、CBCT、IOS)智能疾病识别接口',
+                apiFeature2: '• 牙齿 FDI 编号自动标注接口',
+                apiFeature3: '• 口腔影像智能分析报告生成接口',
+                apiFeature4: '• 口腔数字化重建(口内照、CBCT、IOS)接口',
+                apiFeature5: '• 其他定制化需求',
+                contactPhone: '联系手机',
+                apiPhonePlaceholder: '请输入11位手机号',
+                applicationScenario: '应用场景',
+                selectScenario: '请选择应用场景',
+                scenarioHospital: '公立医院',
+                scenarioClinic: '私立诊所',
+                scenarioCompany: '科技企业',
+                scenarioResearch: '科研机构',
+                scenarioOther: '其他',
+                notesOptional: '备注说明（选填）',
+                notesPlaceholder: '请简要描述您的使用需求...',
+                apiSubmitNote: '<i class="fa-solid fa-info-circle mr-2"></i>提交后，我们的技术团队将在 <strong>1-2个工作日内</strong> 与您联系，提供 API 密钥及接入文档。',
+                cancel: '取消',
+                submit: '提交申请',
+                apiContact: '如有疑问，请联系我们：',
+                aboutModalTitle: '关于我们',
+                aboutTagline: '用AI重新定义口腔健康的未来',
+                aboutVision: '我们的愿景',
+                aboutVisionText: '在 ToothHelper，我们相信科技的力量能让专业的口腔诊断变得触手可及。我们致力于通过 DuYa 口腔大模型，将顶尖的 AI 算法与深度学习技术融合，为每一位用户提供精准、快速且便捷的数字化口腔健康方案。',
+                aboutTeam: '顶尖跨学科团队',
+                aboutTeamIntro: '我们的团队是创新的引擎，由来自 Columbia University、University of North Carolina、The University of Sydney、The University of Hong Kong 的精英骨干组成，汇集了人工智能、医学影像、临床医学的多领域专家。',
+                aboutAI4M: 'AI4M 团队',
+                aboutAI4MText: '深耕计算机视觉（CV）与大语言模型（LLM）领域，自主研发DuYa Oral Foundation Model，实现对口腔疾病的精准识别与分析。',
+                aboutClinical: '临床医学团队',
+                aboutClinicalText: '拥有深厚的医学背景与临床经验，将临床医学逻辑融入算法开发，提升模型的临床适用性。',
+                aboutWhy: '为什么选择 ToothHelper？',
+                aboutCard1Title: '学术驱动的创新',
+                aboutCard1Text: '背靠顶尖学府的科研环境，技术方案经过反复验证与迭代，始终走在行业前沿。',
+                aboutCard2Title: '全栈自研技术',
+                aboutCard2Text: '从算法模型到云端部署，掌握完整的核心技术闭环。',
+                aboutCard3Title: '以人为本的初衷',
+                aboutCard3Text: '致力于提供最有温度的智能医疗体验，无论临床还是居家。',
+                aboutContact: '联系我们',
+                close: '关闭',
+                detected: '已检测',
+                apiSuccessAlert: '申请提交成功！\n我们的技术团队将在1-2个工作日内与您联系。\n\n感谢您的关注！',
+                viewReportAlert: '跳转到专业版报告页面',
+                shareReportTitle: 'ToothHelper 口腔健康报告',
+                shareReportText: '我刚完成了智能口腔健康分析，快来看看我的报告！',
+                shareFallbackAlert: '分享功能：复制链接或生成分享海报',
+                diseaseModalTitle: '可识别的10种口腔问题',
+                diseaseModalIntro: 'DuYa口腔大模型已训练识别以下常见口腔问题',
+                diseaseGotIt: '我知道了',
+                d1Name: '龋齿', d1Desc: '牙齿硬组织的细菌性疾病',
+                d2Name: '残冠', d2Desc: '牙冠大部分缺损的残留牙根',
+                d3Name: '牙磨损', d3Desc: '牙齿表面的物理性磨耗',
+                d4Name: '楔状缺损', d4Desc: '牙颈部硬组织缺损',
+                d5Name: '牙龈退缩', d5Desc: '牙龈组织向根方退缩',
+                d6Name: '氟牙症', d6Desc: '氟摄入过量导致的牙齿发育缺陷',
+                d7Name: '牙列拥挤', d7Desc: '牙齿排列空间不足导致的拥挤',
+                d8Name: '牙齿颜色', d8Desc: '牙齿色泽异常改变',
+                d9Name: '牙结石', d9Desc: '钙化的牙菌斑沉积物',
+                d10Name: '牙龈炎', d10Desc: '牙龈组织的炎症',
+                tutorialTitle: '标准拍摄方法',
+                methodOther: '他人帮拍(推荐)',
+                methodSelf: '前置自拍',
+                tutorialOtherTip: '<i class="fa-solid fa-info-circle mr-2"></i>建议由他人协助拍摄，可获得更清晰稳定的影像',
+                shootUpper: '上颌拍摄', shootFront: '正面拍摄', shootDown: '下颌拍摄',
+                otherUpperDesc: '抬头并大张嘴，拍摄者从斜下方拍摄，确保拍全所有上排牙齿的面。',
+                otherFrontDesc: '平视前方，上下牙稍微分开一点间隙，拍摄者正对嘴部拍摄牙齿外侧面。',
+                otherDownDesc: '低头并大张嘴，舌头向上卷曲，拍摄者从斜上方拍摄，清晰呈现下排牙齿的咬合面。',
+                tutorialPoints: '拍摄要点',
+                point1Title: '充足照明',
+                point1Desc: '请在自然光充足处拍摄，或开启闪光灯。确保牙龈边缘清晰无阴影。',
+                point2Title: '精确对焦',
+                point2Desc: '点击屏幕对焦于牙齿表面。模糊的影像会导致 AI 分析失败。',
+                point3Title: '完整视角',
+                point3Desc: '拍摄上下颌面时请最大程度张口，确保能看到最后一颗磨牙，并保持稳定。',
+                tutorialSelfTip: '<i class="fa-solid fa-triangle-exclamation mr-2"></i>自拍模式需注意保持手机稳定。',
+                selfUpperDesc: '手机屏幕朝向面部并斜向上仰，头往后仰张大嘴，对准上排牙齿面。',
+                selfFrontDesc: '看着手机屏幕，上下牙稍稍分开一点缝隙，让镜头水平正对着牙齿中心。',
+                selfDownDesc: '手机屏幕朝向面部并斜向下倾，低头张大嘴，舌头向上卷曲，对准下排牙齿面。',
+                point2SelfTitle: '保持稳定',
+                point2SelfDesc: '确保手机稳定，避免抖动和模糊。',
+                point3SelfTitle: '调整距离',
+                point3SelfDesc: '保持20-30cm的拍摄距离，确保牙齿清晰可见且不变形。',
+                point1SelfDesc: '确保光线充足，避免阴影和反光。'
+            },
+            en: {
+                title: 'ToothHelper | Digital Oral Healthcare Imaging',
+                noThirdParty: 'Your data is never shared with third parties',
+                smartOralSystem: 'Smart Oral Health System',
+                apiCall: 'API Access',
+                aboutUs: 'About Us',
+                heroDesc: 'Deep learning-based computer vision (DuYa Model) completes full-mouth health analysis in under 1 minute. Upload 3 standard tooth photos to start.',
+                helloAssistant: 'Hi! I\'m your<br/>Smart Oral Assistant',
+                userCountPrefix: 'ToothHelper has served ',
+                userCountSuffix: ' users with oral health guidance',
+                userCountSuffixDesktop: ' users with oral health guidance',
+                viewGuide: 'View Shooting Guide',
+                viewGuideButton: '<i class="fa-solid fa-camera"></i> View Shooting Guide',
+                upperView: 'Upper Occlusal View',
+                frontView: 'Front View',
+                lowerView: 'Lower Occlusal View',
+                retake: 'Retake',
+                startAnalysis: 'Start Analysis',
+                analyzing: 'Analyzing...',
+                analysisDone: 'Done',
+                serverOk: 'Server connected',
+                modelName: 'DuYa Oral Model V1.5.1',
+                updatedAt: 'Updated Jun 30, 2026',
+                agreement: 'I have read and agree to the ',
+                agreementLink: 'Terms & User Agreement',
+                disclaimer: 'Disclaimer: This analysis is for reference only and does not replace professional diagnosis. Please consult a dentist for oral health issues. Accuracy depends on photo quality and lighting.',
+                detectResult: 'View Results',
+                viewReport: 'View Full Report',
+                shareReport: 'Share',
+                zoomIn: 'Zoom',
+                detecting: 'Detecting',
+                kinds: 'Detectable conditions',
+                kindsDesktop: 'Detectable<br/>conditions',
+                stat10Value: '10',
+                accuracy: 'Accuracy',
+                timeCost: 'Analysis time',
+                params: 'Model size',
+                encryption: 'Encryption<br/>standard',
+                satisfaction: 'User<br/>satisfaction',
+                efficiency: 'Efficiency<br/>gain',
+                clickTip: 'Click for tips',
+                smartTerminal: 'Smart Oral Terminal',
+                detectingInProgress: 'Analysis in progress',
+                surveyTitle: 'User Survey',
+                surveyIntro: 'Please answer 3 questions to help us improve',
+                submitSurveyBtn: 'Submit & View Report',
+                apiModalTitle: 'API Access Request',
+                apiModalIntro: 'API access is now available. Apply to integrate.',
+                apiFeaturesTitle: 'Available API Features',
+                apiFeature1: '• Oral imaging (intraoral, CBCT, IOS) disease recognition',
+                apiFeature2: '• Tooth FDI numbering auto-annotation',
+                apiFeature3: '• Oral imaging analysis report generation',
+                apiFeature4: '• Oral digital reconstruction (intraoral, CBCT, IOS)',
+                apiFeature5: '• Custom requirements',
+                contactPhone: 'Phone',
+                apiPhonePlaceholder: 'Enter 11-digit phone number',
+                applicationScenario: 'Use case',
+                selectScenario: 'Select use case',
+                scenarioHospital: 'Public hospital',
+                scenarioClinic: 'Private clinic',
+                scenarioCompany: 'Tech company',
+                scenarioResearch: 'Research institution',
+                scenarioOther: 'Other',
+                notesOptional: 'Notes (optional)',
+                notesPlaceholder: 'Briefly describe your needs...',
+                apiSubmitNote: '<i class="fa-solid fa-info-circle mr-2"></i>Our team will contact you within <strong>1-2 business days</strong> with API key and documentation.',
+                cancel: 'Cancel',
+                submit: 'Submit',
+                apiContact: 'Questions? Contact us: ',
+                aboutModalTitle: 'About Us',
+                aboutTagline: 'Redefining the future of oral health with AI',
+                aboutVision: 'Our Vision',
+                aboutVisionText: 'At ToothHelper, we believe technology can make professional oral diagnosis accessible. Through the DuYa Oral Foundation Model, we combine AI and deep learning to deliver accurate, fast, and convenient digital oral health solutions.',
+                aboutTeam: 'Cross-disciplinary Team',
+                aboutTeamIntro: 'Our team drives innovation, with experts from Columbia University, UNC, The University of Sydney, and The University of Hong Kong in AI, medical imaging, and clinical practice.',
+                aboutAI4M: 'AI4M Team',
+                aboutAI4MText: 'Focus on computer vision (CV) and large language models (LLM), developing the DuYa Oral Foundation Model for accurate oral disease recognition and analysis.',
+                aboutClinical: 'Clinical Team',
+                aboutClinicalText: 'Deep medical and clinical expertise, integrating clinical logic into algorithm development for clinical applicability.',
+                aboutWhy: 'Why ToothHelper?',
+                aboutCard1Title: 'Research-driven innovation',
+                aboutCard1Text: 'Backed by leading research, our solutions are validated and iterated, at the forefront of the industry.',
+                aboutCard2Title: 'Full-stack technology',
+                aboutCard2Text: 'From algorithms to cloud deployment, we own the full technology stack.',
+                aboutCard3Title: 'People-first design',
+                aboutCard3Text: 'Committed to the most human-centered smart healthcare experience, in clinic or at home.',
+                aboutContact: 'Contact Us',
+                close: 'Close',
+                detected: 'Detected',
+                apiSuccessAlert: 'Application submitted!\nOur team will contact you within 1-2 business days.\n\nThank you for your interest!',
+                viewReportAlert: 'Redirecting to full report',
+                shareReportTitle: 'ToothHelper Oral Health Report',
+                shareReportText: 'I just completed my smart oral health analysis. Check out my report!',
+                shareFallbackAlert: 'Share: Copy link or generate poster',
+                diseaseModalTitle: '10 Recognizable Oral Conditions',
+                diseaseModalIntro: 'DuYa Oral Model has been trained to recognize the following common oral conditions',
+                diseaseGotIt: 'Got it',
+                d1Name: 'Caries', d1Desc: 'Bacterial disease of tooth hard tissue',
+                d2Name: 'Residual crown', d2Desc: 'Remaining root with most crown lost',
+                d3Name: 'Tooth wear', d3Desc: 'Physical wear of tooth surface',
+                d4Name: 'Wedge defect', d4Desc: 'Hard tissue defect at tooth neck',
+                d5Name: 'Gingival recession', d5Desc: 'Gums receding toward root',
+                d6Name: 'Dental fluorosis', d6Desc: 'Tooth defect from excess fluoride',
+                d7Name: 'Crowding', d7Desc: 'Teeth crowded due to lack of space',
+                d8Name: 'Tooth color', d8Desc: 'Abnormal tooth discoloration',
+                d9Name: 'Calculus', d9Desc: 'Calcified plaque deposit',
+                d10Name: 'Gingivitis', d10Desc: 'Inflammation of gum tissue',
+                tutorialTitle: 'Standard Shooting Guide',
+                methodOther: 'Assisted (recommended)',
+                methodSelf: 'Selfie',
+                tutorialOtherTip: 'Have someone assist for clearer, steadier images.',
+                shootUpper: 'Upper view', shootFront: 'Front view', shootDown: 'Lower view',
+                otherUpperDesc: 'Tilt head back, mouth open; assistant shoots from below to capture upper teeth.',
+                otherFrontDesc: 'Look ahead, teeth slightly apart; assistant shoots straight at teeth from front.',
+                otherDownDesc: 'Chin down, mouth open, tongue up; assistant shoots from above for lower teeth.',
+                tutorialPoints: 'Shooting tips',
+                point1Title: 'Good lighting',
+                point1Desc: 'Shoot in natural light or use flash. Keep gum edges clear without shadow.',
+                point2Title: 'Focus',
+                point2Desc: 'Tap to focus on teeth. Blurry images may cause AI analysis to fail.',
+                point3Title: 'Full view',
+                point3Desc: 'Open mouth wide for upper/lower shots; include last molars and keep steady.',
+                tutorialSelfTip: '<i class="fa-solid fa-triangle-exclamation mr-2"></i>Keep the phone steady in selfie mode.',
+                selfUpperDesc: 'Screen toward face, phone tilted up; tilt head back, mouth open, aim at upper teeth.',
+                selfFrontDesc: 'Look at screen, teeth slightly apart; lens level and centered on teeth.',
+                selfDownDesc: 'Screen toward face, phone tilted down; chin down, mouth open, tongue up, aim at lower teeth.',
+                point2SelfTitle: 'Keep steady',
+                point2SelfDesc: 'Hold phone steady to avoid blur.',
+                point3SelfTitle: 'Distance',
+                point3SelfDesc: 'Keep 20–30 cm distance so teeth are clear and not distorted.',
+                point1SelfDesc: 'Ensure good lighting and avoid shadow or glare.'
+            }
+        };
+        
+        function t(key) { return (I18N[currentLang] || I18N.zh)[key] || key; }
+        
+        function setLang(lang) {
+            if (lang !== 'zh' && lang !== 'en') return;
+            window.currentLang = lang;
+            localStorage.setItem('toothhelper-lang', lang);
+            document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
+            document.title = I18N[lang].title;
+            
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                const val = I18N[lang][key];
+                if (val === undefined) return;
+                if (el.getAttribute('data-i18n-html')) {
+                    el.innerHTML = val;
+                } else {
+                    el.textContent = val;
+                }
+            });
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                const key = el.getAttribute('data-i18n-placeholder');
+                if (I18N[lang][key] != null) el.placeholder = I18N[lang][key];
+            });
+            document.querySelectorAll('option[data-i18n-option]').forEach(opt => {
+                const key = opt.getAttribute('data-i18n-option');
+                if (I18N[lang][key] != null) opt.textContent = I18N[lang][key];
+            });
+            
+            document.querySelectorAll('.lang-zh-btn').forEach(btn => {
+                btn.classList.toggle('bg-tech-cyan/20', lang === 'zh');
+                btn.classList.toggle('text-deep-teal/60', lang !== 'zh');
+            });
+            document.querySelectorAll('.lang-en-btn').forEach(btn => {
+                btn.classList.toggle('bg-tech-cyan/20', lang === 'en');
+                btn.classList.toggle('text-deep-teal/60', lang !== 'en');
+            });
+        }
+        
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() { setLang(currentLang); });
+        } else {
+            setLang(currentLang);
+        }
+        
+        /* ==========================================
+           全局变量和常量
+           ========================================== */
+        
+        let userCount = 99888;
+        const userCountElement = document.getElementById('user-count');
+        const userCountMobileElement = document.getElementById('user-count-mobile');
+        
+        /* ==========================================
+           用户统计功能
+           ========================================== */
+        
+        /**
+         * 更新用户数量显示
+         * 每3-8秒随机增加1-3个用户，模拟实时用户增长
+         */
+        function updateUserCount() {
+            const randomDelay = Math.random() * 5000 + 3000; // 3-8秒
+            const randomIncrease = Math.floor(Math.random() * 3) + 1; // 1-3个用户
+            
+            setTimeout(() => {
+                userCount += randomIncrease;
+                if (userCountElement) {
+                    userCountElement.textContent = userCount.toLocaleString();
+                }
+                if (userCountMobileElement) {
+                    userCountMobileElement.textContent = userCount.toLocaleString();
+                }
+                updateUserCount(); // 继续下一次更新
+            }, randomDelay);
+        }
+        
+        // 页面加载后开始更新
+        if (userCountElement || userCountMobileElement) {
+            updateUserCount();
+        }
+        
+        /* ==========================================
+           气泡提示功能
+           ========================================== */
+        
+        const bubbleTextElement = document.getElementById('bubble-text');
+        
+        /**
+         * 口腔健康科普内容数组
+         * 共100条健康提示，在气泡中循环显示
+         */
+        const dentalTips = [
+            '每天刷牙2次<br/>每次2分钟',
+            '使用牙线清洁<br/>牙缝更健康',
+            '定期看牙医<br/>预防胜治疗',
+            '少吃糖食物<br/>保护牙齿',
+            '刷牙后别漱口<br/>氟化物更有效',
+            '用软毛牙刷<br/>保护牙龈',
+            '牙龈出血<br/>警惕牙周病',
+            '牙刷每3个月<br/>更换一次',
+            '吃酸性食物后<br/>半小时再刷牙',
+            '睡前刷牙<br/>最为重要',
+            '牙齿敏感<br/>警惕牙釉质磨损',
+            '电动牙刷<br/>清洁更彻底',
+            '清洁舌苔<br/>预防口臭',
+            '喝碳酸饮料后<br/>记得漱口',
+            '智齿发炎<br/>及时就医',
+            '牙齿矫正<br/>成人也可以',
+            '孕期要注意<br/>口腔卫生',
+            '宝宝6个月大<br/>首次检查',
+            '氟化物强化<br/>牙釉质',
+            '磨牙症患者<br/>可戴护齿器',
+            '口腔溃疡超2周<br/>及时就医',
+            '吸烟增加<br/>口腔病风险',
+            '美白前应先<br/>治疗牙病',
+            '根管治疗<br/>可挽救龋齿',
+            '牙周病是<br/>失牙主因',
+            '无糖口香糖<br/>促唾液分泌',
+            '唾液有<br/>抗菌修复功能',
+            '牙齿不齐<br/>影响咀嚼发音',
+            '洗牙不伤牙<br/>每年1-2次',
+            '牙龈萎缩<br/>不可逆',
+            '含氟牙膏<br/>各年龄适用',
+            '牙齿外伤后<br/>立即就医',
+            '乳牙龋齿<br/>也要治疗',
+            '牙菌斑是<br/>主要致病因素',
+            '正确刷牙法<br/>巴氏刷牙',
+            '牙缝变大<br/>警惕牙周病',
+            '种植牙<br/>接近天然牙',
+            '牙齿发黄<br/>不一定是病',
+            '四环素牙<br/>药物引起',
+            '氟斑牙<br/>儿童期过量氟',
+            '牙齿缺失<br/>及时修复',
+            '夜间口干<br/>增加龋齿风险',
+            '糖尿病患者<br/>易患牙周病',
+            '维C缺乏<br/>致牙龈出血',
+            '钙质不足<br/>影响牙齿',
+            '咬硬物<br/>易致牙隐裂',
+            '牙齿隐裂<br/>需定期检查',
+            '牙髓炎疼痛<br/>需根管治疗',
+            '牙周袋<br/>牙周病表现',
+            '牙结石<br/>需专业洗牙',
+            '换牙期注意<br/>恒牙萌出',
+            '双排牙<br/>及时拔乳牙',
+            '牙齿松动<br/>可能可治疗',
+            '牙冠修复<br/>保护牙齿',
+            '牙桥修复<br/>需磨邻牙',
+            '活动假牙<br/>定期调整',
+            '全口假牙<br/>需适应期',
+            '隐形矫正<br/>美观需自律',
+            '传统矫正<br/>力量精确',
+            '矫正期间<br/>加强清洁',
+            '矫正后<br/>佩戴保持器',
+            '牙齿贴面<br/>改善外观',
+            '瓷贴面<br/>更耐用美观',
+            '冷光美白<br/>维持1-2年',
+            '家用美白<br/>浓度更安全',
+            '美白后24小时<br/>避免深色食物',
+            '牙齿敏感<br/>用抗敏牙膏',
+            '含酒精漱口水<br/>别长期用',
+            '儿童牙膏<br/>含氟量要低',
+            '3岁以下<br/>米粒大牙膏',
+            '3-6岁<br/>豌豆大牙膏',
+            '牙线比牙签<br/>更安全',
+            '水牙线<br/>适合矫正人群',
+            '牙间刷<br/>清洁大牙缝',
+            '舌刮器<br/>去除舌苔',
+            'pH低于5.5<br/>牙齿脱矿',
+            '纤维食物<br/>清洁牙齿',
+            '奶酪<br/>保护牙齿',
+            '绿茶<br/>有益口腔',
+            '木糖醇<br/>抑制致龋菌',
+            '睡眠时<br/>细菌易繁殖',
+            '口呼吸<br/>增加龋齿风险',
+            '打鼾与<br/>口腔结构有关',
+            '颞颌关节紊乱<br/>引起张口痛',
+            '咬合不正<br/>致面部不对称',
+            '牙齿咬合<br/>影响姿势',
+            '口腔健康<br/>关联心血管',
+            '牙周病菌<br/>影响全身',
+            '孕前做<br/>口腔检查',
+            '哺乳期治牙<br/>告知医生',
+            '老年人易患<br/>根面龋',
+            '唾液减少<br/>加速龋坏',
+            '某些药物<br/>致牙龈增生',
+            '化疗可能<br/>致黏膜炎',
+            '放疗后<br/>注意口腔护理',
+            '口腔癌症状<br/>易被忽视',
+            '口腔白斑<br/>有癌变风险',
+            '舌癌多发于<br/>舌侧缘',
+            '定期自检<br/>早发现异常'
+        ];
+        
+        const dentalTipsEn = [
+            'Brush twice daily<br/>2 minutes each',
+            'Floss daily<br/>healthier gums',
+            'See your dentist<br/>prevention matters',
+            'Less sugar<br/>protect teeth',
+            'Don\'t rinse after brushing<br/>keep fluoride',
+            'Use soft bristles<br/>protect gums',
+            'Bleeding gums<br/>see a dentist',
+            'Replace toothbrush<br/>every 3 months',
+            'Wait 30 min after acidic food<br/>then brush',
+            'Brush before bed<br/>most important',
+            'Sensitive teeth<br/>check enamel',
+            'Electric brush<br/>thorough clean',
+            'Clean tongue<br/>fresher breath',
+            'Rinse after soda<br/>protect enamel',
+            'Wisdom tooth pain<br/>see a dentist',
+            'Braces work<br/>for adults too',
+            'Pregnancy<br/>oral care matters',
+            'First dental visit<br/>at 6 months',
+            'Fluoride strengthens<br/>enamel',
+            'Teeth grinding<br/>wear a guard',
+            'Mouth ulcer >2 weeks<br/>see a doctor',
+            'Smoking increases<br/>oral disease risk',
+            'Treat dental issues<br/>before whitening',
+            'Root canal<br/>can save teeth',
+            'Gum disease<br/>main cause of tooth loss',
+            'Sugar-free gum<br/>helps saliva',
+            'Saliva has<br/>antibacterial role',
+            'Crooked teeth<br/>affect chewing',
+            'Professional cleaning<br/>1–2 times a year',
+            'Receding gums<br/>often irreversible'
+        ];
+        
+        function getDentalTips() { return (window.currentLang === 'en' ? dentalTipsEn : dentalTips); }
+        
+        let currentTipIndex = -1;
+        const bubbleTextMobileElement = document.getElementById('bubble-text-mobile');
+        
+        /**
+         * 更新气泡文字内容
+         * 随机选择一条口腔健康提示，带淡入淡出动画效果
+         * 支持手动点击小人切换和自动循环播放
+         */
+        function updateBubbleText() {
+            if (!bubbleTextElement && !bubbleTextMobileElement) return;
+            
+            // 淡出动画
+            if (bubbleTextElement) bubbleTextElement.style.opacity = '0';
+            if (bubbleTextMobileElement) bubbleTextMobileElement.style.opacity = '0';
+            
+setTimeout(() => {
+                const tips = getDentalTips();
+                // 如果是第一次（10秒后），开始显示科普内容
+                if (currentTipIndex === -1) {
+                    currentTipIndex = 0;
+                } else {
+                    // 随机选择一个不同的科普内容
+                    let newIndex;
+                    do {
+                        newIndex = Math.floor(Math.random() * tips.length);
+                    } while (newIndex === currentTipIndex && tips.length > 1);
+                    currentTipIndex = newIndex;
+                }
+                
+                // 更新内容
+                if (bubbleTextElement) bubbleTextElement.innerHTML = tips[currentTipIndex];
+                if (bubbleTextMobileElement) bubbleTextMobileElement.innerHTML = tips[currentTipIndex];
+                
+                // 使用requestAnimationFrame确保平滑过渡
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        if (bubbleTextElement) bubbleTextElement.style.opacity = '1';
+                        if (bubbleTextMobileElement) bubbleTextMobileElement.style.opacity = '1';
+                    });
+                });
+            }, 700); // 与CSS的duration-700匹配
+        }
+        
+        // 10秒后开始循环播放科普内容
+        if (bubbleTextElement) {
+            setTimeout(() => {
+                updateBubbleText();
+                // 之后每10秒切换一次
+                setInterval(updateBubbleText, 10000);
+            }, 10000);
+        }
+        
+        /* ==========================================
+           照片上传功能
+           ========================================== */
+        
+        let uploadedCount = 0;
+
+        /**
+         * 处理照片上传
+         * @param {HTMLInputElement} input - 文件输入元素
+         * @param {string} imgId - 预览图片元素的ID
+         */
+        function handleFile(input, imgId) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = document.getElementById(imgId);
+                    img.src = e.target.result;
+                    img.classList.remove('hidden');
+                    input.parentElement.querySelector('.preview-placeholder').classList.add('opacity-0');
+                    // 隐藏白色蒙版层
+                    const whiteOverlay = input.parentElement.querySelector('.white-overlay');
+                    if (whiteOverlay) {
+                        whiteOverlay.classList.add('hidden');
+                    }
+                    // 移除upload-card的白色背景
+                    const uploadCard = input.parentElement.querySelector('.upload-card');
+                    if (uploadCard) {
+                        uploadCard.style.background = 'transparent';
+                        uploadCard.classList.add('!border-tech-cyan', 'shadow-glow');
+                    }
+                    // 显示"点击重拍"按钮
+                    const retakeBtn = input.parentElement.querySelector('.retake-btn');
+                    if (retakeBtn) {
+                        retakeBtn.classList.remove('hidden');
+                    }
+                    // 显示图注
+                    const container = input.parentElement.parentElement;
+                    const photoLabel = container.querySelector('.photo-label');
+                    if (photoLabel) {
+                        photoLabel.classList.remove('hidden');
+                    }
+                    uploadedCount++;
+                    checkReady();
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        /**
+         * 重新拍摄照片
+         * @param {string} inputId - 文件输入元素ID
+         * @param {string} imgId - 预览图片元素ID
+         */
+        function retakePhoto(inputId, imgId) {
+            const input = document.getElementById(inputId);
+            const img = document.getElementById(imgId);
+            const container = input.parentElement.parentElement;
+            
+            // 清除照片并恢复初始状态
+            img.src = '';
+            img.classList.add('hidden');
+            
+            // 显示占位符
+            const placeholder = input.parentElement.querySelector('.preview-placeholder');
+            if (placeholder) {
+                placeholder.classList.remove('opacity-0');
+            }
+            
+            // 显示白色蒙版层
+            const whiteOverlay = input.parentElement.querySelector('.white-overlay');
+            if (whiteOverlay) {
+                whiteOverlay.classList.remove('hidden');
+            }
+            
+            // 恢复upload-card背景
+            const uploadCard = input.parentElement.querySelector('.upload-card');
+            if (uploadCard) {
+                uploadCard.style.background = '';
+                uploadCard.classList.remove('!border-tech-cyan', 'shadow-glow');
+            }
+            
+            // 隐藏"点击重拍"按钮
+            const retakeBtn = input.parentElement.querySelector('.retake-btn');
+            if (retakeBtn) {
+                retakeBtn.classList.add('hidden');
+            }
+            
+            // 隐藏图注
+            const photoLabel = container.querySelector('.photo-label');
+            if (photoLabel) {
+                photoLabel.classList.add('hidden');
+            }
+            
+            // 清除input值
+            input.value = '';
+            
+            // 减少上传计数
+            uploadedCount--;
+            checkReady();
+        }
+
+        /**
+         * 检查是否可以开始分析
+         * 需要满足：上传3张照片 + 勾选同意协议
+         */
+        function checkReady() {
+            const btn = document.getElementById('analyze-btn');
+            const checkbox = document.getElementById('agreement-checkbox');
+            const isAgreed = checkbox ? checkbox.checked : false;
+            
+            if(uploadedCount >= 3 && isAgreed) {
+                btn.disabled = false;
+                btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                btn.classList.add('opacity-100');
+            } else {
+                btn.disabled = true;
+                btn.classList.add('opacity-50', 'cursor-not-allowed');
+                btn.classList.remove('opacity-100');
+            }
+        }
+
+        function checkAgreement() {
+            checkReady();
+        }
+
+        // 10种疾病列表
+        const diseases = [
+            '龋齿', '残冠', '牙磨损', '楔状缺损', '牙龈退缩',
+            '氟牙症', '牙列拥挤', '牙齿颜色', '牙结石', '牙龈炎'
+        ];
+        const diseasesEn = [
+            'Caries', 'Residual crown', 'Tooth wear', 'Wedge defect', 'Gingival recession',
+            'Dental fluorosis', 'Crowding', 'Tooth color', 'Calculus', 'Gingivitis'
+        ];
+        function getDiseases() { return (window.currentLang === 'en' ? diseasesEn : diseases); }
+
+        /* ==========================================
+           智能分析功能
+           ========================================== */
+        
+        /**
+         * 开始智能分析
+         * 模拟AI检测过程，逐个显示检测项目和结果
+         * 完成后显示已上传照片和操作按钮
+         */
+        function startAnalysis() {
+            const btn = document.getElementById('analyze-btn');
+            const diagnosisPanel = document.getElementById('diagnosis-panel');
+            const diagnosisList = document.getElementById('diagnosis-list');
+            const disclaimerBefore = document.getElementById('disclaimer-before');
+            const disclaimerAfter = document.getElementById('disclaimer-after');
+            
+            // 禁用按钮
+            btn.disabled = true;
+            btn.classList.remove('opacity-100');
+            btn.innerHTML = `<span class="relative z-10 flex items-center justify-center gap-3 text-deep-teal"><i class="fa-solid fa-circle-notch fa-spin text-deep-teal"></i> ${t('analyzing')}</span>`;
+            
+            // 隐藏检测前的免责声明，显示诊断面板
+            disclaimerBefore.classList.add('hidden');
+            diagnosisPanel.classList.remove('hidden');
+            disclaimerAfter.classList.remove('hidden');
+            diagnosisList.innerHTML = '';
+            
+            // 创建单个固定的检测项
+            const item = document.createElement('div');
+            item.className = 'flex items-center justify-between bg-white rounded-lg px-4 py-3 border border-tech-cyan/10 transition-all duration-300';
+            diagnosisList.appendChild(item);
+            
+            // 逐个检测疾病（在同一行滚动显示）
+            let currentIndex = 0;
+            
+            function detectDisease() {
+                if (currentIndex >= getDiseases().length) {
+                    // 所有检测完成
+                    setTimeout(() => {
+                        const panelTitle = diagnosisPanel.querySelector('h3');
+                        panelTitle.innerHTML = `
+                            <i class="fa-solid fa-circle-check text-green-500"></i>
+                        ${t('analysisDone')}
+                        `;
+                        btn.innerHTML = `<span class="relative z-10 flex items-center justify-center gap-3 text-deep-teal"><i class="fa-solid fa-circle-check"></i>${t('analysisDone')}</span>`;
+                        
+                        // 移除检测项
+                        item.remove();
+                        
+                        // 添加已上传的照片显示
+                        const photosSection = document.createElement('div');
+                        photosSection.className = 'mb-4 pb-4 border-b border-tech-cyan/10';
+                        
+                        const upperImg = document.getElementById('preview-upper').src;
+                        const frontImg = document.getElementById('preview-front').src;
+                        const lowerImg = document.getElementById('preview-lower').src;
+                        
+                        photosSection.innerHTML = `
+                            <h4 class="text-sm font-bold text-deep-teal mb-3 flex items-center gap-2">
+                                <i class="fa-solid fa-images text-tech-cyan-dark"></i>
+                                ${t('detectResult')}
+                            </h4>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 -mx-4 md:mx-0">
+                                <div class="cursor-pointer" onclick="showImageModal('${upperImg}', '${t('upperView')}')">
+                                    <div class="relative group overflow-hidden rounded-xl">
+                                        <img src="${upperImg}" class="w-full aspect-video object-cover border border-tech-cyan/20 transition-all group-hover:border-tech-cyan group-hover:shadow-lg" alt="${t('upperView')}">
+                                        <div class="absolute top-2 right-2 bg-black/50 px-2 py-1 rounded text-white text-xs flex items-center gap-1">
+                                            <i class="fa-solid fa-expand text-[10px]"></i>
+                                            <span>${t('zoomIn')}</span>
+                                        </div>
+                                        <div class="absolute inset-0 bg-deep-teal/0 group-hover:bg-deep-teal/10 transition-all flex items-center justify-center">
+                                            <i class="fa-solid fa-expand text-white text-2xl opacity-0 group-hover:opacity-100 transition-all"></i>
+                                        </div>
+                                    </div>
+                                    <p class="text-xs text-deep-teal/70 text-center mt-2">${t('upperView')}</p>
+                                </div>
+                                <div class="cursor-pointer" onclick="showImageModal('${frontImg}', '${t('frontView')}')">
+                                    <div class="relative group overflow-hidden rounded-xl">
+                                        <img src="${frontImg}" class="w-full aspect-video object-cover border border-tech-cyan/20 transition-all group-hover:border-tech-cyan group-hover:shadow-lg" alt="${t('frontView')}">
+                                        <div class="absolute top-2 right-2 bg-black/50 px-2 py-1 rounded text-white text-xs flex items-center gap-1">
+                                            <i class="fa-solid fa-expand text-[10px]"></i>
+                                            <span>${t('zoomIn')}</span>
+                                        </div>
+                                        <div class="absolute inset-0 bg-deep-teal/0 group-hover:bg-deep-teal/10 transition-all flex items-center justify-center">
+                                            <i class="fa-solid fa-expand text-white text-2xl opacity-0 group-hover:opacity-100 transition-all"></i>
+                                        </div>
+                                    </div>
+                                    <p class="text-xs text-deep-teal/70 text-center mt-2">${t('frontView')}</p>
+                                </div>
+                                <div class="cursor-pointer" onclick="showImageModal('${lowerImg}', '${t('lowerView')}')">
+                                    <div class="relative group overflow-hidden rounded-xl">
+                                        <img src="${lowerImg}" class="w-full aspect-video object-cover border border-tech-cyan/20 transition-all group-hover:border-tech-cyan group-hover:shadow-lg" alt="${t('lowerView')}">
+                                        <div class="absolute top-2 right-2 bg-black/50 px-2 py-1 rounded text-white text-xs flex items-center gap-1">
+                                            <i class="fa-solid fa-expand text-[10px]"></i>
+                                            <span>${t('zoomIn')}</span>
+                                        </div>
+                                        <div class="absolute inset-0 bg-deep-teal/0 group-hover:bg-deep-teal/10 transition-all flex items-center justify-center">
+                                            <i class="fa-solid fa-expand text-white text-2xl opacity-0 group-hover:opacity-100 transition-all"></i>
+                                        </div>
+                                    </div>
+                                    <p class="text-xs text-deep-teal/70 text-center mt-2">${t('lowerView')}</p>
+                                </div>
+                            </div>
+                        `;
+                        diagnosisList.appendChild(photosSection);
+                        
+                        // 添加查看报告按钮
+                        const reportBtn = document.createElement('div');
+                        reportBtn.id = 'report-buttons';
+                        reportBtn.className = 'w-full mt-2 pt-2 border-t border-tech-cyan/10 flex flex-nowrap gap-2 md:gap-3';
+                        reportBtn.innerHTML = `
+                            <button onclick="showSurvey()" class="relative group overflow-hidden w-full px-3 md:px-6 py-3 bg-tech-gradient text-deep-teal font-heading font-bold text-xs md:text-base rounded-xl shadow-lg shadow-tech-cyan/20 transition-all hover:scale-[1.02] hover:shadow-tech-cyan/40">
+                                <span class="relative z-10 flex items-center justify-center gap-1.5 md:gap-2 whitespace-nowrap">
+                                    <span>${t('viewReport')}</span> <i class="fa-solid fa-file-medical text-xs md:text-sm"></i>
+                                </span>
+                                <div class="absolute inset-0 bg-white/40 -translate-x-full group-hover:animate-scan-sweep z-0"></div>
+                            </button>
+                        `;
+                        diagnosisList.appendChild(reportBtn);
+                    }, 500);
+                    return;
+                }
+                
+                const diseaseList = getDiseases();
+                const disease = diseaseList[currentIndex];
+                
+                // 显示正在检测
+                item.className = 'flex items-center justify-between bg-white rounded-lg px-4 py-3 border border-tech-cyan/10 transition-all duration-300';
+                item.innerHTML = `
+                    <span class="text-sm font-medium text-deep-teal">${t('detecting')} <span class="font-bold">${disease}</span></span>
+                    <i class="fa-solid fa-circle-notch fa-spin text-tech-cyan-dark"></i>
+                `;
+                
+                // 检测完成
+                setTimeout(() => {
+                    item.className = 'flex items-center justify-between bg-green-50/50 rounded-lg px-4 py-3 border border-green-200/50 transition-all duration-300';
+                    item.innerHTML = `
+                        <span class="text-sm font-medium text-deep-teal">${t('detected')} <span class="font-bold">${disease}</span></span>
+                        <i class="fa-solid fa-circle-check text-green-500"></i>
+                    `;
+                    
+                    // 短暂停留后检测下一个
+                    setTimeout(() => {
+                        currentIndex++;
+                        detectDisease();
+                    }, 400);
+                }, 800 + Math.random() * 400); // 每个疾病检测时间0.8-1.2秒
+            }
+            
+            // 开始检测
+            detectDisease();
+        }
+
+        /* ==========================================
+           API申请功能
+           ========================================== */
+        
+        /**
+         * 提交API申请表单
+         * @param {Event} event - 表单提交事件
+         */
+        function submitAPIRequest(event) {
+            event.preventDefault();
+            
+            const phone = document.getElementById('api-phone').value;
+            const scenario = document.getElementById('api-scenario').value;
+            const notes = document.getElementById('api-notes').value;
+            
+            // 这里可以添加实际的API提交逻辑
+            console.log('API申请信息：', { phone, scenario, notes });
+            
+            // 显示成功提示
+            alert(t('apiSuccessAlert'));
+            
+            // 关闭模态框并重置表单
+            toggleModal('api-modal');
+            document.getElementById('api-phone').value = '';
+            document.getElementById('api-scenario').value = '';
+            document.getElementById('api-notes').value = '';
+        }
+
+        function switchShootingMethod(method) {
+            const otherBtn = document.getElementById('method-other');
+            const selfBtn = document.getElementById('method-self');
+            const otherContent = document.getElementById('other-method');
+            const selfContent = document.getElementById('self-method');
+
+            if (method === 'other') {
+                // 切换到他人帮拍
+                otherBtn.className = 'px-4 py-2 rounded-lg text-xs md:text-sm font-bold transition-all bg-tech-gradient text-deep-teal shadow-sm whitespace-nowrap flex items-center';
+                selfBtn.className = 'px-4 py-2 rounded-lg text-xs md:text-sm font-bold transition-all text-deep-teal/60 hover:text-deep-teal whitespace-nowrap flex items-center';
+                otherContent.classList.remove('hidden');
+                selfContent.classList.add('hidden');
+            } else {
+                // 切换到前置自拍
+                selfBtn.className = 'px-4 py-2 rounded-lg text-xs md:text-sm font-bold transition-all bg-tech-gradient text-deep-teal shadow-sm whitespace-nowrap flex items-center';
+                otherBtn.className = 'px-4 py-2 rounded-lg text-xs md:text-sm font-bold transition-all text-deep-teal/60 hover:text-deep-teal whitespace-nowrap flex items-center';
+                selfContent.classList.remove('hidden');
+                otherContent.classList.add('hidden');
+            }
+        }
+
+        /* ==========================================
+           模态框功能
+           ========================================== */
+        
+        /**
+         * 切换模态框显示状态
+         * @param {string} modalId - 模态框元素ID
+         */
+        function toggleModal(modalId) {
+            const modal = document.getElementById(modalId);
+            let content;
+            
+            if (modalId === 'tutorial-modal') {
+                content = modal.querySelector('#tutorial-content');
+            } else if (modalId === 'disease-modal') {
+                content = modal.querySelector('#disease-content');
+            } else if (modalId === 'api-modal') {
+                content = modal.querySelector('#api-content');
+            } else if (modalId === 'about-modal') {
+                content = modal.querySelector('#about-content');
+            } else {
+                content = modal.querySelector('#info-content');
+            }
+            
+            if (modal.classList.contains('hidden')) {
+                modal.classList.remove('hidden');
+                void modal.offsetWidth; 
+                modal.classList.remove('opacity-0');
+                
+                content.classList.remove('scale-95', 'opacity-0');
+                content.classList.add('scale-100', 'opacity-100');
+            } else {
+                modal.classList.add('opacity-0');
+                content.classList.remove('scale-100', 'opacity-100');
+                content.classList.add('scale-95', 'opacity-0');
+                setTimeout(() => {
+                    modal.classList.add('hidden');
+                }, 300);
+            }
+        }
+
+        /**
+         * 显示图片放大模态框
+         * @param {string} imageSrc - 图片源地址
+         * @param {string} imageTitle - 图片标题
+         */
+        function showImageModal(imageSrc, imageTitle) {
+            const modal = document.getElementById('image-modal');
+            const img = document.getElementById('image-modal-img');
+            const title = document.getElementById('image-modal-title');
+            
+            img.src = imageSrc;
+            title.textContent = imageTitle;
+            modal.classList.remove('hidden');
+        }
+
+        function closeImageModal() {
+            const modal = document.getElementById('image-modal');
+            modal.classList.add('hidden');
+        }
+
+        // 问卷题库
+        const surveyQuestions = {
+            A: [
+                {
+                    id: 'Q1',
+                    question: '您觉得刚才的智能口腔分析体验怎么样？',
+                    type: 'scale',
+                    min: 1,
+                    max: 5,
+                    minLabel: '完全没用',
+                    maxLabel: '非常有用'
+                },
+                {
+                    id: 'Q3',
+                    question: '您对这种「用照片 + AI 做口腔健康分析」的方式接受程度如何？',
+                    type: 'scale',
+                    min: 1,
+                    max: 5,
+                    minLabel: '完全不接受',
+                    maxLabel: '非常接受'
+                },
+                {
+                    id: 'Q5',
+                    question: '如果这类服务需要付费（或需要购买设备），您使用/购买的可能性有多大？',
+                    type: 'scale',
+                    min: 1,
+                    max: 5,
+                    minLabel: '完全不可能',
+                    maxLabel: '非常可能'
+                }
+            ],
+            B: [
+                {
+                    id: 'Q2',
+                    question: '刚才的体验对您了解口腔健康状况有帮助吗？',
+                    type: 'scale',
+                    min: 1,
+                    max: 5,
+                    minLabel: '完全没帮助',
+                    maxLabel: '非常有帮助'
+                },
+                {
+                    id: 'Q4',
+                    question: '您对「用照片 + AI 分析口腔健康」这种方式的接受程度？',
+                    type: 'scale',
+                    min: 1,
+                    max: 5,
+                    minLabel: '完全不接受',
+                    maxLabel: '非常接受'
+                },
+                {
+                    id: 'Q6',
+                    question: '您有多大可能把刚才这种「智能口腔分析」推荐给亲友？',
+                    type: 'scale',
+                    min: 1,
+                    max: 5,
+                    minLabel: '完全不可能',
+                    maxLabel: '非常可能'
+                }
+            ],
+            C: [
+                {
+                    id: 'Q1',
+                    question: '您觉得刚才的智能口腔分析体验怎么样？',
+                    type: 'scale',
+                    min: 1,
+                    max: 5,
+                    minLabel: '完全没用',
+                    maxLabel: '非常有用'
+                },
+                {
+                    id: 'Q3',
+                    question: '您对这种「用照片 + AI 做口腔健康分析」的方式接受程度如何？',
+                    type: 'scale',
+                    min: 1,
+                    max: 5,
+                    minLabel: '完全不接受',
+                    maxLabel: '非常接受'
+                },
+                {
+                    id: 'Q7',
+                    question: '以后您会自己或带家人再来使用这种智能口腔分析吗？',
+                    type: 'scale',
+                    min: 1,
+                    max: 5,
+                    minLabel: '不会',
+                    maxLabel: '会经常用'
+                }
+            ],
+            D: [
+                {
+                    id: 'Q2',
+                    question: '刚才的体验对您了解口腔健康状况有帮助吗？',
+                    type: 'scale',
+                    min: 1,
+                    max: 5,
+                    minLabel: '完全没帮助',
+                    maxLabel: '非常有帮助'
+                },
+                {
+                    id: 'Q8',
+                    question: '您对智能分析结果的信任程度如何？（在未看报告前，基于当前体验）',
+                    type: 'scale',
+                    min: 1,
+                    max: 5,
+                    minLabel: '完全不信',
+                    maxLabel: '完全信任'
+                },
+                {
+                    id: 'Q6',
+                    question: '您有多大可能把刚才这种「智能口腔分析」推荐给亲友？',
+                    type: 'scale',
+                    min: 1,
+                    max: 5,
+                    minLabel: '完全不可能',
+                    maxLabel: '非常可能'
+                }
+            ],
+            E: [
+                {
+                    id: 'Q1',
+                    question: '您觉得刚才的智能口腔分析体验怎么样？',
+                    type: 'scale',
+                    min: 1,
+                    max: 5,
+                    minLabel: '完全没用',
+                    maxLabel: '非常有用'
+                },
+                {
+                    id: 'Q9',
+                    question: '您有多大意愿在日常生活中使用这种智能口腔分析？',
+                    type: 'scale',
+                    min: 1,
+                    max: 5,
+                    minLabel: '完全没意愿',
+                    maxLabel: '非常有意愿'
+                },
+                {
+                    id: 'Q5',
+                    question: '如果这类服务需要付费（或需要购买设备），您使用/购买的可能性有多大？',
+                    type: 'scale',
+                    min: 1,
+                    max: 5,
+                    minLabel: '完全不可能',
+                    maxLabel: '非常可能'
+                }
+            ]
+        };
+
+        const surveyQuestionsEn = {
+            A: [
+                { id: 'Q1', question: 'How was your smart oral analysis experience?', type: 'scale', min: 1, max: 5, minLabel: 'Not useful', maxLabel: 'Very useful' },
+                { id: 'Q3', question: 'How do you feel about "photo + AI" for oral health analysis?', type: 'scale', min: 1, max: 5, minLabel: 'Not at all', maxLabel: 'Very much' },
+                { id: 'Q5', question: 'If this service required payment (or device purchase), how likely would you use/buy?', type: 'scale', min: 1, max: 5, minLabel: 'Not likely', maxLabel: 'Very likely' }
+            ],
+            B: [
+                { id: 'Q2', question: 'Did this experience help you understand your oral health?', type: 'scale', min: 1, max: 5, minLabel: 'Not at all', maxLabel: 'Very much' },
+                { id: 'Q4', question: 'How do you feel about "photo + AI" for oral health analysis?', type: 'scale', min: 1, max: 5, minLabel: 'Not at all', maxLabel: 'Very much' },
+                { id: 'Q6', question: 'How likely would you recommend this smart oral analysis to others?', type: 'scale', min: 1, max: 5, minLabel: 'Not likely', maxLabel: 'Very likely' }
+            ],
+            C: [
+                { id: 'Q1', question: 'How was your smart oral analysis experience?', type: 'scale', min: 1, max: 5, minLabel: 'Not useful', maxLabel: 'Very useful' },
+                { id: 'Q3', question: 'How do you feel about "photo + AI" for oral health analysis?', type: 'scale', min: 1, max: 5, minLabel: 'Not at all', maxLabel: 'Very much' },
+                { id: 'Q7', question: 'Would you use this smart oral analysis again (or with family)?', type: 'scale', min: 1, max: 5, minLabel: 'No', maxLabel: 'Often' }
+            ],
+            D: [
+                { id: 'Q2', question: 'Did this experience help you understand your oral health?', type: 'scale', min: 1, max: 5, minLabel: 'Not at all', maxLabel: 'Very much' },
+                { id: 'Q8', question: 'How much do you trust the analysis results? (before viewing report)', type: 'scale', min: 1, max: 5, minLabel: 'Not at all', maxLabel: 'Fully' },
+                { id: 'Q6', question: 'How likely would you recommend this smart oral analysis to others?', type: 'scale', min: 1, max: 5, minLabel: 'Not likely', maxLabel: 'Very likely' }
+            ],
+            E: [
+                { id: 'Q1', question: 'How was your smart oral analysis experience?', type: 'scale', min: 1, max: 5, minLabel: 'Not useful', maxLabel: 'Very useful' },
+                { id: 'Q9', question: 'How willing are you to use this smart oral analysis in daily life?', type: 'scale', min: 1, max: 5, minLabel: 'Not willing', maxLabel: 'Very willing' },
+                { id: 'Q5', question: 'If this service required payment (or device purchase), how likely would you use/buy?', type: 'scale', min: 1, max: 5, minLabel: 'Not likely', maxLabel: 'Very likely' }
+            ]
+        };
+
+        function getSurveyQuestions() { return (window.currentLang === 'en' ? surveyQuestionsEn : surveyQuestions); }
+
+        let selectedCombo = null;
+        let surveyAnswers = {};
+
+        /* ==========================================
+           问卷调查功能
+           ========================================== */
+        
+        /**
+         * 显示问卷调查
+         * 从A-E组中随机选择一组问题（每组3个问题）
+         * 动态生成问卷表单并显示模态框
+         */
+        function showSurvey() {
+            // 随机选择A-E中的一组
+            const combos = ['A', 'B', 'C', 'D', 'E'];
+            selectedCombo = combos[Math.floor(Math.random() * combos.length)];
+            
+            const questions = getSurveyQuestions()[selectedCombo];
+            const form = document.getElementById('survey-form');
+            
+            // 生成问题HTML
+            form.innerHTML = questions.map((q, index) => {
+                if (q.type === 'single') {
+                    return `
+                        <div class="bg-gradient-to-br from-gray-50 to-white rounded-2xl p-4 md:p-5 border border-gray-100 shadow-sm">
+                            <div class="flex items-start gap-2 mb-3">
+                                <span class="flex-shrink-0 w-6 h-6 rounded-full bg-tech-cyan/20 flex items-center justify-center text-xs font-bold text-tech-cyan-dark">${index + 1}</span>
+                                <h3 class="text-sm md:text-base font-bold text-deep-teal leading-snug">${q.question}</h3>
+                            </div>
+                            <div class="space-y-2">
+                                ${q.options.map((option, i) => `
+                                    <label class="flex items-center p-2.5 md:p-3 bg-white rounded-lg cursor-pointer hover:bg-tech-cyan/5 transition-all border border-gray-200 hover:border-tech-cyan hover:shadow-sm group">
+                                        <input type="radio" name="${q.id}" value="${i + 1}" class="w-4 h-4 text-tech-cyan-dark flex-shrink-0" required>
+                                        <span class="ml-2.5 text-xs md:text-sm text-deep-teal group-hover:text-tech-cyan-dark transition-colors">${option}</span>
+                                    </label>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                } else if (q.type === 'scale') {
+                    return `
+                        <div class="bg-gradient-to-br from-gray-50 to-white rounded-2xl p-4 md:p-5 border border-gray-100 shadow-sm">
+                            <div class="flex items-start gap-2 mb-3">
+                                <span class="flex-shrink-0 w-6 h-6 rounded-full bg-tech-cyan/20 flex items-center justify-center text-xs font-bold text-tech-cyan-dark">${index + 1}</span>
+                                <h3 class="text-sm md:text-base font-bold text-deep-teal leading-snug">${q.question}</h3>
+                            </div>
+                            <div class="flex items-center justify-between mb-2 px-1">
+                                <span class="text-[10px] md:text-xs text-deep-teal/60 max-w-[40%] text-left">${q.minLabel}</span>
+                                <span class="text-[10px] md:text-xs text-deep-teal/60 max-w-[40%] text-right">${q.maxLabel}</span>
+                            </div>
+                            <div class="flex justify-center gap-2 md:gap-3">
+                                ${Array.from({length: q.max - q.min + 1}, (_, i) => i + q.min).map(val => `
+                                    <label class="cursor-pointer group">
+                                        <input type="radio" name="${q.id}" value="${val}" class="peer hidden" required>
+                                        <div class="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-white rounded-full border-2 border-gray-200 peer-checked:border-tech-cyan peer-checked:bg-tech-cyan/10 peer-checked:shadow-md hover:border-tech-cyan/50 hover:scale-110 transition-all">
+                                            <span class="text-sm md:text-base font-bold text-deep-teal peer-checked:text-tech-cyan-dark">${val}</span>
+                                        </div>
+                                    </label>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+            }).join('');
+
+            // 显示模态框
+            const modal = document.getElementById('survey-modal');
+            const content = document.getElementById('survey-content');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                modal.classList.add('opacity-100');
+                content.classList.remove('scale-95', 'opacity-0');
+                content.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        /**
+         * 关闭问卷模态框
+         * 带淡出动画效果
+         */
+        function closeSurvey() {
+            const modal = document.getElementById('survey-modal');
+            const content = document.getElementById('survey-content');
+            modal.classList.remove('opacity-100');
+            modal.classList.add('opacity-0');
+            content.classList.remove('scale-100', 'opacity-100');
+            content.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+
+        /**
+         * 提交问卷调查
+         * 收集用户答案，更新按钮显示，并跳转到报告页面
+         */
+        function submitSurvey() {
+            const form = document.getElementById('survey-form');
+            
+            // 验证表单完整性
+            if (!form.checkValidity()) {
+                alert('请回答所有问题');
+                return;
+            }
+
+            // 收集答案
+            const formData = new FormData(form);
+            surveyAnswers = {
+                combo: selectedCombo,
+                answers: {}
+            };
+            
+            for (let [key, value] of formData.entries()) {
+                surveyAnswers.answers[key] = value;
+            }
+
+            console.log('问卷结果:', surveyAnswers);
+
+            // 关闭模态框
+            closeSurvey();
+
+            // 添加分享按钮
+            const reportBtnContainer = document.getElementById('report-buttons');
+            reportBtnContainer.innerHTML = `
+                <button onclick="viewReport()" class="relative group overflow-hidden px-3 md:px-6 py-3 bg-tech-gradient text-deep-teal font-heading font-bold text-xs md:text-base rounded-xl shadow-lg shadow-tech-cyan/20 transition-all hover:scale-[1.02] hover:shadow-tech-cyan/40 flex-shrink-0" style="flex: 2;">
+                    <span class="relative z-10 flex items-center justify-center gap-1.5 md:gap-2 whitespace-nowrap">
+                        <span>${t('viewReport')}</span> <i class="fa-solid fa-file-medical text-xs md:text-sm"></i>
+                    </span>
+                    <div class="absolute inset-0 bg-white/40 -translate-x-full group-hover:animate-scan-sweep z-0"></div>
+                </button>
+                <button onclick="shareReport()" class="relative group overflow-hidden px-3 md:px-6 py-3 bg-white text-deep-teal font-heading font-bold text-xs md:text-base rounded-xl border-2 border-tech-cyan/30 transition-all hover:scale-[1.02] hover:border-tech-cyan/50 hover:bg-tech-cyan/5 flex-shrink-0" style="flex: 0.85;">
+                    <span class="relative z-10 flex items-center justify-center gap-1.5 md:gap-2 whitespace-nowrap">
+                        <span>${t('shareReport')}</span> <i class="fa-solid fa-share-nodes text-xs md:text-sm"></i>
+                    </span>
+                </button>
+            `;
+
+            // 跳转到报告
+            setTimeout(() => {
+                viewReport();
+            }, 500);
+        }
+
+        /* ==========================================
+           报告操作功能
+           ========================================== */
+        
+        /**
+         * 查看专业版报告
+         * 跳转到详细报告页面
+         */
+        function viewReport() {
+            alert(t('viewReportAlert'));
+            // window.location.href = '报告链接';
+        }
+
+        /**
+         * 分享报告
+         * 使用Web Share API或降级到复制链接
+         */
+        function shareReport() {
+            if (navigator.share) {
+                navigator.share({
+                    title: t('shareReportTitle'),
+                    text: t('shareReportText'),
+                    url: window.location.href
+                }).catch(err => console.log('分享失败', err));
+            } else {
+                alert(t('shareFallbackAlert'));
+            }
+        }
+    </script>
+    </div>
+</body>
+</html>
