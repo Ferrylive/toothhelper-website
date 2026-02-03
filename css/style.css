@@ -1,0 +1,288 @@
+/* ==========================================
+   全局样式
+   ========================================== */
+
+body {
+    background-color: rgb(229, 244, 235);
+    background-image: radial-gradient(at 0% 0%, rgba(127, 236, 216, 0.15) 0px, transparent 50%),
+                      radial-gradient(at 100% 100%, rgba(127, 236, 216, 0.15) 0px, transparent 50%);
+    color: #0f3e3e;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+/* ==========================================
+   组件样式 - 磨砂玻璃效果
+   ========================================== */
+
+.glass-panel {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    border-top: 1px solid rgba(255, 255, 255, 0.9);
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+}
+
+/* ==========================================
+   组件样式 - 上传卡片
+   ========================================== */
+
+.upload-card {
+    background: linear-gradient(145deg, rgba(255,255,255,0.9), rgba(255,255,255,0.6));
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    border-radius: 2rem;
+    overflow: hidden;
+}
+/* 当有背景图片时，覆盖默认背景 */
+.upload-card[style*="background-image"] {
+    background-color: rgba(255, 255, 255, 0.95);
+}
+.upload-card:hover {
+    border-color: #7FECD8;
+    transform: translateY(-5px);
+    box-shadow: 0 20px 40px -10px rgba(127, 236, 216, 0.3);
+}
+
+/* ==========================================
+   滚动条样式
+   ========================================== */
+
+/* 主滚动条 */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #bfece6; border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: #7FECD8; }
+
+/* ==========================================
+   动画效果
+   ========================================== */
+
+/* 扫描动画 - 上传卡片悬停效果 */
+.scan-line {
+    background: linear-gradient(to bottom, transparent, #7FECD8 50%, transparent);
+    height: 100%;
+    width: 100%;
+    position: absolute;
+    top: -100%;
+    left: 0;
+    opacity: 0.2;
+}
+.upload-card:hover .scan-line {
+    animation: dropScan 2s linear infinite;
+}
+@keyframes dropScan {
+    0% { top: -100%; }
+    100% { top: 100%; }
+}
+
+/* 慢速脉冲动画 */
+@keyframes pulse-slow {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.8;
+        transform: scale(1.05);
+    }
+}
+
+.animate-pulse-slow {
+    animation: pulse-slow 3s ease-in-out infinite;
+}
+
+/* ==========================================
+   装饰性元素
+   ========================================== */
+
+/* 背景图案 */
+.bg-pattern {
+    position: absolute;
+    opacity: 0.15;
+    pointer-events: none;
+    fill: #7FECD8;
+    z-index: 0;
+}
+
+/* 对话气泡 */
+.speech-bubble {
+    width: 200px;
+    animation: gentleBubbleFloat 4s ease-in-out infinite;
+}
+.speech-bubble p {
+    line-height: 1.5;
+}
+@keyframes gentleBubbleFloat {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-5px); }
+}
+
+/* 淡入动画 */
+@keyframes fadeIn {
+    0% { opacity: 0; transform: translateY(-10px); }
+    100% { opacity: 1; transform: translateY(0px); }
+}
+.animate-fade-in {
+    animation: fadeIn 0.5s ease-out;
+}
+
+/* ==========================================
+   工具类
+   ========================================== */
+
+/* 隐藏滚动条 */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* 模态框自定义滚动条 */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #7FECD8;
+    border-radius: 10px;
+    border: 2px solid white;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #5AD4BE;
+}
+
+/* ==========================================
+   表单元素样式
+   ========================================== */
+
+/* Select下拉框选项美化 */
+select option {
+    background-color: #FFFFFF !important;
+    color: #1B4D5C !important;
+    padding: 10px;
+}
+select option:hover {
+    background-color: #F0FDFB !important;
+}
+select option:checked {
+    background-color: #E0F9F5 !important;
+    color: #0D9488 !important;
+    font-weight: 600;
+}
+select option[value=""] {
+    color: #94A3B8 !important;
+}
+
+/* ==========================================
+   黑暗模式适配
+   基于系统偏好自动切换
+   ========================================== */
+
+@media (prefers-color-scheme: dark) {
+    /* 全局背景和文字 */
+    body {
+        background-color: #0a1f1f;
+        background-image: radial-gradient(at 0% 0%, rgba(127, 236, 216, 0.08) 0px, transparent 50%),
+                          radial-gradient(at 100% 100%, rgba(127, 236, 216, 0.08) 0px, transparent 50%);
+        color: #e0f2f1;
+    }
+
+    /* 玻璃面板 */
+    .glass-panel {
+        background: rgba(26, 51, 51, 0.85);
+        border-color: rgba(127, 236, 216, 0.2);
+    }
+
+    /* 上传卡片 */
+    .upload-card {
+        background: linear-gradient(145deg, rgba(26, 51, 51, 0.6), rgba(26, 51, 51, 0.4));
+        border-color: rgba(127, 236, 216, 0.3);
+    }
+
+    /* 文字颜色 */
+    .text-deep-teal {
+        color: #e0f2f1 !important;
+    }
+    
+    .text-deep-teal\/60,
+    .text-deep-teal\/70 {
+        color: rgba(224, 242, 241, 0.7) !important;
+    }
+
+    /* 背景色 */
+    .bg-white {
+        background-color: #1a3333 !important;
+    }
+
+    .bg-white\/70,
+    .bg-white\/60 {
+        background-color: rgba(26, 51, 51, 0.7) !important;
+    }
+
+    .bg-gray-50 {
+        background-color: #0f2626 !important;
+    }
+
+    .bg-med-base\/30 {
+        background-color: rgba(26, 51, 51, 0.3) !important;
+    }
+
+    /* 边框颜色 */
+    .border-gray-200,
+    .border-gray-100 {
+        border-color: rgba(127, 236, 216, 0.2) !important;
+    }
+
+    .border-tech-cyan\/10,
+    .border-tech-cyan\/20 {
+        border-color: rgba(127, 236, 216, 0.25) !important;
+    }
+
+    /* 输入框 */
+    input, textarea, select {
+        background-color: #1a3333 !important;
+        color: #e0f2f1 !important;
+        border-color: rgba(127, 236, 216, 0.3) !important;
+    }
+
+    input::placeholder,
+    textarea::placeholder {
+        color: rgba(224, 242, 241, 0.5) !important;
+    }
+
+    /* 模态框背景 */
+    .bg-deep-teal\/30 {
+        background-color: rgba(10, 31, 31, 0.8) !important;
+    }
+
+    /* 阴影调整 */
+    .shadow-sm,
+    .shadow-md,
+    .shadow-lg {
+        box-shadow: 0 4px 20px rgba(127, 236, 216, 0.1) !important;
+    }
+
+    /* SVG图标 */
+    .bg-pattern path {
+        fill: rgba(127, 236, 216, 0.1);
+    }
+
+    /* 按钮 */
+    button {
+        color: #e0f2f1;
+    }
+
+    /* 选择框选项 */
+    select option {
+        background-color: #1a3333 !important;
+        color: #e0f2f1 !important;
+    }
+
+    select option:hover {
+        background-color: #0f2626 !important;
+    }
+}
